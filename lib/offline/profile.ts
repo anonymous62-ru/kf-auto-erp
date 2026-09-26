@@ -10,7 +10,7 @@ export async function getCachedProfile(): Promise<CachedProfile | null> {
 }
 
 export async function refreshCachedProfile(): Promise<CachedProfile | null> {
-  if (!navigator.onLine) return db.meta.get('profile') ?? null;
+  if (!navigator.onLine) return (await db.meta.get('profile')) ?? null;
 
   const supabase = createClient();
   const { data: userData } = await supabase.auth.getUser();
