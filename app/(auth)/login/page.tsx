@@ -19,10 +19,11 @@ export default function LoginPage() {
     // uniquement nom + logo, pas le reste des données de l'organisation, pour
     // pouvoir afficher le vrai logo dès l'écran de connexion (avant
     // authentification).
-    supabase
+       supabase
       .rpc('get_organization_branding')
       .single()
-      .then(({ data }: { data: { name: string; logo_url: string | null } | null }) => {
+      .then((res) => {
+        const data = res.data as { name: string; logo_url: string | null } | null;
         if (data) setBranding(data);
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
