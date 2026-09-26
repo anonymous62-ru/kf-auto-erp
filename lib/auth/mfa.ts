@@ -15,7 +15,13 @@ export async function enrollTotp() {
   const supabase = createClient();
   const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp' });
   if (error) throw new Error(error.message);
-  return data; // { id, totp: { qr_code, secret, uri } }
+  // Le type renvoyé par le SDK est une union (totp | phone) car enroll() est
+  // générique sur tous les types de facteurs ; on force ici le type puisque
+  // factorType: 'totp' garantit que la réponse contient bien `totp`, ce que
+  // le typage du SDK ne reflète pas automatiquement (npm run dev ne fait pas
+  // de vérification de type complète, contrairement à "next build" utilisé
+  // par Vercel — c'est pour ça que ce n'était jamais apparu avant).
+  return data as { id: string; type: 'totp'; totp: { qr_code: string; secret: string; uri: string } };
 }
 
 export async function verifyTotpEnrollment(factorId: string, code: string) {
