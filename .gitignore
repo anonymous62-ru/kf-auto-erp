@@ -1,0 +1,18 @@
+# Dépendances et build
+node_modules/
+.next/
+out/
+dist/
+
+# Secrets : ne JAMAIS committer les clés Supabase (surtout SUPABASE_SERVICE_ROLE_KEY,
+# qui contourne toutes les sécurités RLS) — elles se configurent directement dans
+# Vercel (Project Settings > Environment Variables), jamais dans le dépôt Git.
+.env
+.env.local
+.env.*.local
+
+# Divers
+.DS_Store
+*.log
+npm-debug.log*
+.vercel

@@ -1,0 +1,91 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+    scroll-behavior: smooth;
+  }
+  body {
+    background: linear-gradient(180deg, #f3f5fa 0%, #eef1f7 100%);
+    background-attachment: fixed;
+  }
+  ::selection {
+    background-color: #f7941d55;
+  }
+  /* Ascenseur discret, cohérent avec l'identité visuelle */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: #1b2a4a33;
+    border-radius: 999px;
+  }
+}
+
+@layer components {
+  /* ---------- Boutons ---------- */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-kf-navy text-white font-medium text-sm py-3 px-4
+      shadow-sm shadow-kf-navy/20 transition-all duration-150
+      hover:bg-[#25396b] hover:shadow-md active:scale-[0.98]
+      disabled:opacity-60 disabled:pointer-events-none;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white text-kf-navy font-medium text-sm py-3 px-4
+      shadow-sm transition-all duration-150
+      hover:border-kf-navy/30 hover:bg-kf-navy/5 active:scale-[0.98]
+      disabled:opacity-60 disabled:pointer-events-none;
+  }
+  .btn-danger-ghost {
+    @apply inline-flex items-center justify-center gap-1 rounded-lg text-red-600 text-xs font-medium px-2 py-1
+      transition-colors hover:bg-red-50;
+  }
+  .btn-link {
+    @apply text-xs font-medium text-kf-navy underline decoration-kf-navy/30 underline-offset-2 hover:decoration-kf-navy;
+  }
+
+  /* ---------- Cartes ---------- */
+  .card {
+    @apply bg-white rounded-2xl border border-gray-100 shadow-sm shadow-gray-200/60;
+  }
+  .card-hover {
+    @apply transition-all duration-150 hover:shadow-md hover:-translate-y-0.5;
+  }
+
+  /* ---------- Champs ---------- */
+  .field-label {
+    @apply text-xs font-medium text-gray-500;
+  }
+  .input {
+    @apply w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white
+      transition-shadow duration-150
+      focus:outline-none focus:ring-2 focus:ring-kf-orange/40 focus:border-kf-orange/60;
+  }
+
+  /* ---------- Badges de statut ---------- */
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium;
+  }
+  .badge-navy { @apply badge bg-kf-navy/10 text-kf-navy; }
+  .badge-red { @apply badge bg-red-100 text-red-700; }
+  .badge-orange { @apply badge bg-orange-100 text-orange-700; }
+  .badge-green { @apply badge bg-green-100 text-green-700; }
+  .badge-gray { @apply badge bg-gray-100 text-gray-600; }
+
+  /* Bande tricolore signature (reprend celle des documents PDF/DOCX) */
+  .brand-stripe {
+    @apply h-1.5 w-full flex overflow-hidden;
+  }
+  .brand-stripe > span:nth-child(1) { @apply bg-kf-red flex-[2]; }
+  .brand-stripe > span:nth-child(2) { @apply bg-kf-orange flex-[1]; }
+  .brand-stripe > span:nth-child(3) { @apply bg-kf-navy flex-[3]; }
+  .brand-stripe > span:nth-child(4) { @apply bg-black flex-[1]; }
+}
