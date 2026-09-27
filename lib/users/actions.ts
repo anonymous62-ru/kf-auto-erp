@@ -95,6 +95,40 @@ export async function updateUserRole(userId: string, role: UserRole) {
   if (error) throw new Error(error.message);
 }
 
+export interface UpdateUserProfileInput {
+  fullName: string;
+  email: string;
+  phone?: string;
+}
+
+// Correction des informations d'un utilisateur (nom, email, téléphone) par
+// un super_admin/administrateur, en cas d'erreur de saisie à la création du
+// compte. L'email doit être synchronisé à la fois dans `profiles` (utilisé
+// partout dans l'app) et dans Supabase Auth (sinon l'utilisateur ne pourrait
+// plus se connecter avec son nouvel email).
+export async function updateUserProfile(userId: string, input: UpdateUserProfileInput) {
+  const profile = await requireManagerAccess();
+
+  if (!input.fullName.trim()) throw new Error('Le nom complet est obligatoire.');
+  if (!input.email.trim()) throw new Error("L'email est obligatoire.");
+
+  const admin = createAdminClient();
+
+  const { error: authError } = await admin.auth.admin.updateUserById(userId, {
+    email: input.email,
+    email_confirm: true,
+  });
+  if (authError) throw new Error(authError.message);
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('profiles')
+    .update({ full_name: input.fullName, email: input.email, phone: input.phone })
+    .eq('id', userId)
+    .eq('organization_id', profile.organization_id);
+  if (error) throw new Error(error.message);
+}
+
 export async function toggleUserActive(userId: string, isActive: boolean) {
   const profile = await requireManagerAccess();
   if (userId === profile.id) throw new Error('Vous ne pouvez pas désactiver votre propre compte.');

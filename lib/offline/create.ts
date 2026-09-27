@@ -132,6 +132,11 @@ export async function createDocumentSmart(input: CreateDocumentSmartInput): Prom
           client_id: input.clientId,
           commercial_id: profile.userId,
           issue_date: new Date().toISOString().slice(0, 10),
+          due_date: (() => {
+            const d = new Date();
+            d.setMonth(d.getMonth() + 1);
+            return d.toISOString().slice(0, 10);
+          })(),
           subtotal: totals.subtotal,
           tax_amount: totals.taxAmount,
           total_amount: totals.totalAmount,

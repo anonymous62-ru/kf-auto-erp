@@ -55,7 +55,7 @@ export async function getProduct(id: string) {
   const { data, error } = await supabase
     .from('products')
     .select(
-      'id, designation, sku, brand, model, description, sale_price, tax_rate, quantity_on_hand, stock_min, is_active'
+      'id, designation, sku, reference, brand, model, description, sale_price, tax_rate, quantity_on_hand, stock_min, is_active'
     )
     .eq('id', id)
     .single();

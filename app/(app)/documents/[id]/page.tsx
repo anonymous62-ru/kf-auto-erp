@@ -5,6 +5,7 @@ import { SendActions } from '@/components/documents/send-actions';
 import { PaymentForm } from '@/components/payments/payment-form';
 import { getPayments } from '@/lib/payments/actions';
 import { convertToFacture } from '@/lib/documents/actions';
+import { DeleteDocumentButton } from '@/components/documents/delete-document-button';
 
 const DOCUMENT_LABELS: Record<string, string> = {
   proforma: 'Proforma',
@@ -173,10 +174,19 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
             </div>
           )}
           {balanceDue > 0 && (
-            <PaymentForm documentId={document.id} clientId={document.client_id} balanceDue={balanceDue} />
+            <PaymentForm
+              documentId={document.id}
+              documentNumber={document.document_number}
+              clientId={document.client_id}
+              balanceDue={balanceDue}
+              clientPhone={client?.phone}
+              clientEmail={client?.email}
+            />
           )}
         </div>
       )}
+
+      <DeleteDocumentButton documentId={document.id} documentNumber={document.document_number} />
     </div>
   );
 }

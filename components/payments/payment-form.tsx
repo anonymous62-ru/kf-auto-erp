@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { createPayment, type PaymentMethod } from '@/lib/payments/actions';
 import { useRouter } from 'next/navigation';
+import { ReceiptSendActions } from '@/components/payments/receipt-send-actions';
 
 const METHODS: { value: PaymentMethod; label: string }[] = [
   { value: 'especes', label: 'Espèces' },
@@ -13,13 +14,28 @@ const METHODS: { value: PaymentMethod; label: string }[] = [
   { value: 'autre', label: 'Autre' },
 ];
 
-export function PaymentForm({ documentId, clientId, balanceDue }: { documentId: string; clientId: string; balanceDue: number }) {
+export function PaymentForm({
+  documentId,
+  documentNumber,
+  clientId,
+  balanceDue,
+  clientPhone,
+  clientEmail,
+}: {
+  documentId: string;
+  documentNumber?: string | null;
+  clientId: string;
+  balanceDue: number;
+  clientPhone?: string | null;
+  clientEmail?: string | null;
+}) {
   const [amount, setAmount] = useState(balanceDue);
   const [method, setMethod] = useState<PaymentMethod>('especes');
   const [reference, setReference] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [justPaid, setJustPaid] = useState<{ amount: number; remaining: number } | null>(null);
   const router = useRouter();
 
   function handleSubmit() {
@@ -28,11 +44,28 @@ export function PaymentForm({ documentId, clientId, balanceDue }: { documentId: 
       try {
         await createPayment({ documentId, clientId, amount, paymentMethod: method, reference });
         setOpen(false);
-        router.refresh();
+        setJustPaid({ amount, remaining: Math.max(balanceDue - amount, 0) });
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Erreur');
       }
     });
+  }
+
+  if (justPaid) {
+    return (
+      <ReceiptSendActions
+        documentId={documentId}
+        documentNumber={documentNumber ?? null}
+        amountPaid={justPaid.amount}
+        balanceDue={justPaid.remaining}
+        clientPhone={clientPhone}
+        clientEmail={clientEmail}
+        onDismiss={() => {
+          setJustPaid(null);
+          router.refresh();
+        }}
+      />
+    );
   }
 
   if (!open) {

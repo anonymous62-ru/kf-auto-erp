@@ -22,7 +22,17 @@ export default async function OrganizationSettingsPage() {
 
   const organization = await getMyOrganization();
   if (!organization) {
-    return <p className="text-sm text-gray-500">Organisation introuvable.</p>;
+    return (
+      <div className="text-sm text-gray-500 space-y-2">
+        <p>Organisation introuvable.</p>
+        <p className="text-xs text-gray-400">
+          Cela signifie que la base de données bloque la lecture de votre organisation
+          (policy de sécurité manquante) ou que votre compte n&apos;est rattaché à aucune
+          organisation. Exécutez la migration <code>0014_organizations_rls_fix.sql</code>{' '}
+          dans Supabase (SQL Editor), puis rafraîchissez cette page.
+        </p>
+      </div>
+    );
   }
 
   return (

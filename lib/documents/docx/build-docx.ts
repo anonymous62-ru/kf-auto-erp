@@ -301,9 +301,23 @@ export async function buildDocumentDocx({ document, organization, client, commer
   // intégralement payé (même règle que côté PDF).
   const isPaid = t(document.status) === 'paye';
   if (!isPaid && t(organization.terms_and_conditions)) {
+    // Une Paragraph par ligne d'origine : un seul TextRun ne rend pas les
+    // "\n" internes (Word les affiche comme du texte plat sur une seule
+    // ligne), ce qui fondait toutes les conditions (une par tiret) en un
+    // bloc continu au lieu de les garder une par ligne.
+    const termsLines = t(organization.terms_and_conditions)
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean);
     children.push(
       new Paragraph({ children: [new TextRun({ text: 'CONDITIONS GÉNÉRALES', bold: true, size: 16 })] }),
-      new Paragraph({ children: [new TextRun({ text: t(organization.terms_and_conditions), size: 14 })], spacing: { after: 150 } })
+      ...termsLines.map(
+        (line, i) =>
+          new Paragraph({
+            children: [new TextRun({ text: line, size: 14 })],
+            spacing: i === termsLines.length - 1 ? { after: 150 } : undefined,
+          })
+      )
     );
   }
 

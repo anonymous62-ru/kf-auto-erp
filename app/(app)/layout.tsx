@@ -3,6 +3,7 @@ import { SyncProvider } from '@/components/offline/sync-provider';
 import { OfflineStatusBadge } from '@/components/offline/status-badge';
 import { NotificationBell } from '@/components/notifications/notification-bell';
 import { OrganizationBadge } from '@/components/organization-badge';
+import { LogoutButton } from '@/components/auth/logout-button';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -37,6 +38,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <OfflineStatusBadge />
             <NotificationBell />
             <span className="text-xs opacity-80 hidden sm:inline">{user?.email}</span>
+            <LogoutButton />
           </div>
         </div>
         <div className="brand-stripe">

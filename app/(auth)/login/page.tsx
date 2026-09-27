@@ -19,7 +19,7 @@ export default function LoginPage() {
     // uniquement nom + logo, pas le reste des données de l'organisation, pour
     // pouvoir afficher le vrai logo dès l'écran de connexion (avant
     // authentification).
-       supabase
+    supabase
       .rpc('get_organization_branding')
       .single()
       .then((res) => {

@@ -123,6 +123,22 @@ function wrapText(text: string, font: PDFFont, size: number, maxWidth: number): 
   return lines;
 }
 
+// Comme wrapText, mais respecte les retours à la ligne déjà présents dans le
+// texte (ex : conditions générales saisies ligne par ligne, une par tiret
+// "-") au lieu de tout aplatir en un seul paragraphe continu. Chaque ligne
+// d'origine est re-découpée individuellement si elle dépasse la largeur
+// disponible, mais deux lignes distinctes ne sont jamais fusionnées.
+function wrapTextPreservingLines(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
+  if (!text) return [];
+  const result: string[] = [];
+  for (const raw of text.split('\n')) {
+    const trimmed = raw.trim();
+    if (!trimmed) continue;
+    result.push(...wrapText(trimmed, font, size, maxWidth));
+  }
+  return result;
+}
+
 async function embedImage(pdfDoc: PDFDocument, url: string | null | undefined) {
   const result = await urlToImageBuffer(url);
   if (!result) return undefined;
@@ -331,7 +347,7 @@ export async function buildDocumentPdf({ document, organization, client, commerc
   if (!isPaid && t(organization.terms_and_conditions)) {
     text('CONDITIONS GÉNÉRALES', MARGIN, y, { size: 8, bold: true });
     y -= 11;
-    const lines = wrapText(sanitizeForPdf(t(organization.terms_and_conditions)), font, 7.5, CONTENT_WIDTH);
+    const lines = wrapTextPreservingLines(sanitizeForPdf(t(organization.terms_and_conditions)), font, 7.5, CONTENT_WIDTH);
     for (const line of lines) {
       text(line, MARGIN, y, { size: 7.5 });
       y -= 10;

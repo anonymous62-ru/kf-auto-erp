@@ -107,6 +107,9 @@ export async function createDocument(input: CreateDocumentInput) {
 
   const totals = computeDocumentTotals(input.items);
   const year = new Date().getFullYear();
+  const issueDate = new Date();
+  const dueDate = new Date(issueDate);
+  dueDate.setMonth(dueDate.getMonth() + 1);
 
   // Attribution atomique du numero officiel (Phase 2 : fonction PostgreSQL)
   const { data: documentNumber, error: numberError } = await supabase.rpc(
@@ -128,7 +131,11 @@ export async function createDocument(input: CreateDocumentInput) {
       status: 'brouillon',
       client_id: input.clientId,
       commercial_id: userData.user.id,
-      issue_date: new Date().toISOString().slice(0, 10),
+      issue_date: issueDate.toISOString().slice(0, 10),
+      // Échéance par défaut : un mois après l'émission, avant paiement.
+      // Modifiable ensuite si besoin (aucun champ d'édition dédié pour
+      // l'instant : à ajouter si un délai différent devient courant).
+      due_date: dueDate.toISOString().slice(0, 10),
       subtotal: totals.subtotal,
       tax_amount: totals.taxAmount,
       total_amount: totals.totalAmount,
@@ -194,6 +201,9 @@ export async function convertToFacture(sourceDocumentId: string) {
   if (!sourceItems || sourceItems.length === 0) throw new Error('Ce document ne contient aucun article.');
 
   const year = new Date().getFullYear();
+  const issueDate = new Date();
+  const dueDate = new Date(issueDate);
+  dueDate.setMonth(dueDate.getMonth() + 1);
   const { data: documentNumber, error: numberError } = await supabase.rpc('get_next_document_number', {
     p_organization_id: profile.organization_id,
     p_document_type: 'facture',
@@ -211,7 +221,8 @@ export async function convertToFacture(sourceDocumentId: string) {
       client_id: source.client_id,
       commercial_id: source.commercial_id,
       parent_document_id: source.id,
-      issue_date: new Date().toISOString().slice(0, 10),
+      issue_date: issueDate.toISOString().slice(0, 10),
+      due_date: dueDate.toISOString().slice(0, 10),
       subtotal: source.subtotal,
       tax_amount: source.tax_amount,
       total_amount: source.total_amount,
@@ -261,6 +272,38 @@ export async function recordSending(input: {
   if (error) throw new Error(error.message);
 
   await supabase.from('documents').update({ status: 'envoye' }).eq('id', input.documentId);
+}
+
+// ---------- Suppression d'un document erroné ----------
+// Autorisé pour tout le monde (RLS restreint déjà : l'admin/super_admin peut
+// tout supprimer dans son organisation, un commercial seulement ses propres
+// documents — voir policy `documents_delete`, migration 0011). Refusé si un
+// paiement a déjà été enregistré dessus : on ne veut jamais perdre un
+// historique financier par erreur ; il faut d'abord annuler/rembourser le
+// paiement séparément.
+export async function deleteDocument(documentId: string) {
+  const supabase = await createClient();
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) throw new Error('Non authentifie');
+
+  const { data: document, error: documentError } = await supabase
+    .from('documents')
+    .select('id, document_number, amount_paid')
+    .eq('id', documentId)
+    .maybeSingle();
+  if (documentError) throw new Error(documentError.message);
+  if (!document) throw new Error('Document introuvable');
+
+  if (Number(document.amount_paid) > 0) {
+    throw new Error(
+      "Impossible de supprimer ce document : un paiement y est déjà enregistré. Contactez un administrateur si besoin."
+    );
+  }
+
+  const { error } = await supabase.from('documents').delete().eq('id', documentId);
+  if (error) throw new Error(error.message);
+
+  redirect('/dashboard');
 }
 
 export async function getSendingHistory(documentId: string) {

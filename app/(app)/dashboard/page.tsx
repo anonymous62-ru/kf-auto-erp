@@ -13,6 +13,8 @@ import {
   IconPlus,
   IconChevronRight,
   IconBuilding,
+  IconTarget,
+  IconDocument as IconContract,
 } from '@/components/icons';
 import { OrganizationBadge } from '@/components/organization-badge';
 
@@ -49,6 +51,11 @@ export default async function DashboardPage() {
   const { count: clientsCount } = await supabase
     .from('clients')
     .select('*', { count: 'exact', head: true });
+
+  const { count: activeProspectsCount } = await supabase
+    .from('prospects')
+    .select('*', { count: 'exact', head: true })
+    .not('status', 'in', '(converti,perdu)');
 
   const startOfMonth = new Date();
   startOfMonth.setDate(1);
@@ -114,16 +121,26 @@ export default async function DashboardPage() {
           accent="border-l-kf-navy"
           icon={<IconUsers />}
         />
+        <StatCard
+          href="/prospects"
+          label="Prospects actifs"
+          value={String(activeProspectsCount ?? 0)}
+          accent="border-l-purple-500"
+          icon={<IconTarget />}
+        />
       </div>
 
       <div className="space-y-2">
         <a href="/documents/new/devis" className="btn-primary w-full">
           <IconPlus className="w-4 h-4" /> Créer un document
         </a>
+        <NavLink href="/prospects" icon={<IconTarget />} label="Voir les prospects" />
+        <NavLink href="/contracts" icon={<IconContract />} label="Contrats de vente" />
         <NavLink href="/impayes" icon={<IconAlert />} label="Voir les impayés" />
         <NavLink href="/products" icon={<IconBox />} label="Voir les produits" />
         {profile && ['super_admin', 'administrateur'].includes(profile.role) && (
           <>
+            <NavLink href="/team" icon={<IconUsers />} label="Suivi des commerciaux" />
             <NavLink href="/users" icon={<IconUsers />} label="Gérer les utilisateurs" />
             <NavLink href="/audit" icon={<IconArchive />} label="Journal d'audit" />
             <NavLink href="/settings/organisation" icon={<IconBuilding />} label="Organisation (logo, coordonnées)" />

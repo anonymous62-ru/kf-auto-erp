@@ -110,6 +110,14 @@ async function doSync(): Promise<SyncResult> {
           client_id: clientId,
           commercial_id: profile.userId,
           issue_date: pd.createdAt.slice(0, 10),
+          // Échéance à un mois de la date de création réelle (hors-ligne),
+          // pas de la date de synchronisation, pour rester cohérent avec ce
+          // que le commercial a effectivement promis au client sur le terrain.
+          due_date: (() => {
+            const d = new Date(pd.createdAt);
+            d.setMonth(d.getMonth() + 1);
+            return d.toISOString().slice(0, 10);
+          })(),
           subtotal: pd.subtotal,
           tax_amount: pd.taxAmount,
           total_amount: pd.totalAmount,
