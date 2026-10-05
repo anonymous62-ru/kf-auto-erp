@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
+import { isStorageUrlInBucket } from '@/lib/documents/pdf/storage-to-data-uri';
 
 // Renvoie l'organization_id de l'utilisateur courant — nécessaire côté
 // client pour construire le chemin d'upload ("<organization_id>/<produit>/...")
@@ -54,6 +55,12 @@ export async function addProductPhoto(input: { productId: string; storagePath: s
     .maybeSingle();
   const nextPosition = (existing?.position ?? -1) + 1;
 
+  // La photo doit être un fichier du dossier "vehicle-photos" de notre
+  // stockage : la fiche PDF publique du véhicule l'embarque.
+  if (!isStorageUrlInBucket(input.url, 'vehicle-photos') || input.storagePath.includes('..')) {
+    throw new Error('Photo invalide.');
+  }
+
   const { data, error } = await supabase
     .from('product_photos')
     .insert({
@@ -92,8 +99,11 @@ export async function deleteProductPhoto(photoId: string) {
   if (fetchError) throw new Error(fetchError.message);
   if (!photo) throw new Error('Photo introuvable');
 
-  const { error: deleteError } = await supabase.from('product_photos').delete().eq('id', photoId);
+  const { data: deleted, error: deleteError } = await supabase.from('product_photos').delete().eq('id', photoId).select('id');
   if (deleteError) throw new Error(deleteError.message);
+  // Suppression refusée par la RLS (0 ligne) : on ne touche surtout pas au
+  // fichier, sinon n'importe quel employé pouvait effacer une photo.
+  if (!deleted || deleted.length === 0) throw new Error("Vous n'avez pas le droit de supprimer cette photo.");
 
   const admin = createAdminClient();
   await admin.storage.from('vehicle-photos').remove([photo.storage_path]);

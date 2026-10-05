@@ -2,17 +2,21 @@ import { getProducts } from '@/lib/products/actions';
 import { formatCFA } from '@/lib/documents/calculations';
 import Link from 'next/link';
 import { IconPlus, IconAlert } from '@/components/icons';
+import { can, getCurrentRole } from '@/lib/permissions';
 
 export default async function ProductsPage() {
+  const role = await getCurrentRole();
   const products = await getProducts();
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-medium">Produits</h1>
-        <Link href="/products/new" className="btn-primary text-sm px-3 py-1.5">
-          <IconPlus className="w-3.5 h-3.5" /> Nouveau produit
-        </Link>
+        {can(role, 'productWrite') && (
+          <Link href="/products/new" className="btn-primary text-sm px-3 py-1.5">
+            <IconPlus className="w-3.5 h-3.5" /> Nouveau produit
+          </Link>
+        )}
       </div>
 
       {products.length === 0 && (

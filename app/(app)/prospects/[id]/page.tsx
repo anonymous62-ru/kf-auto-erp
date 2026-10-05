@@ -10,6 +10,7 @@ import { ProspectAppointments } from '@/components/prospects/prospect-appointmen
 import { ProspectStatusSelect } from '@/components/prospects/prospect-status-select';
 import { ConvertToClientButton } from '@/components/prospects/convert-to-client-button';
 import { IconPhone, IconChat, IconMail, IconTarget } from '@/components/icons';
+import { toWhatsappNumber } from '@/lib/utils/phone';
 
 export default async function ProspectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -27,8 +28,9 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
     getProspectAppointments(id),
   ]);
 
-  const name = `${prospect.first_name ?? ''} ${prospect.last_name ?? ''}`.trim() || 'Prospect sans nom';
-  const waNumber = (prospect.whatsapp || prospect.phone || '').replace(/[^0-9]/g, '');
+  const name =
+    prospect.company_name || `${prospect.first_name ?? ''} ${prospect.last_name ?? ''}`.trim() || 'Prospect sans nom';
+  const waNumber = toWhatsappNumber(prospect.whatsapp || prospect.phone);
   const vehicleLabel =
     (prospect.products as { designation?: string } | null)?.designation || prospect.vehicle_interest;
 
@@ -41,6 +43,9 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
               <IconTarget className="w-3.5 h-3.5" /> Prospect
             </p>
             <h1 className="text-lg font-medium">{name}</h1>
+            {(prospect.contact_name || prospect.sector) && (
+              <p className="text-sm text-gray-500">{[prospect.contact_name, prospect.sector].filter(Boolean).join(' · ')}</p>
+            )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <ProspectStatusSelect prospectId={prospect.id} status={prospect.status} />

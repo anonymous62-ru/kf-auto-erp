@@ -50,24 +50,30 @@ export function MfaChallengeForm() {
   if (loading) return <p className="text-sm text-gray-500">Chargement…</p>;
 
   return (
-    <div className="space-y-3">
-      <p className="text-sm text-gray-600">Saisis le code à 6 chiffres généré par ton application d'authentification.</p>
-      <input
-        value={code}
-        onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-        placeholder="123456"
-        inputMode="numeric"
-        autoFocus
-        className="border rounded-md px-3 py-2 text-sm w-32 tracking-widest text-center"
-      />
-      <button
-        onClick={handleVerify}
-        disabled={busy || code.length !== 6}
-        className="block w-full bg-kf-navy text-white rounded-md py-3 text-sm font-medium"
-      >
-        Valider
+    <div className="space-y-4">
+      <div>
+        <label htmlFor="mfa-code" className="block text-sm font-medium text-gray-700">
+          Code de vérification
+        </label>
+        <input
+          id="mfa-code"
+          value={code}
+          onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+          placeholder="000000"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          autoFocus
+          className="input mt-1.5 h-12 text-center text-lg tracking-[0.5em] num"
+        />
+      </div>
+      {error && (
+        <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {error}
+        </p>
+      )}
+      <button onClick={handleVerify} disabled={busy || code.length !== 6} className="btn-primary h-11 w-full">
+        {busy ? 'Vérification...' : 'Valider'}
       </button>
-      {error && <p className="text-xs text-red-600">{error}</p>}
     </div>
   );
 }

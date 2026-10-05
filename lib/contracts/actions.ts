@@ -15,7 +15,19 @@ export interface CreateSaleContractInput {
 // Génération automatique du contrat : dès que le commercial choisit un
 // client + un véhicule, le contrat est créé avec son numéro officiel (même
 // mécanisme que les devis/factures) — il ne reste plus qu'à le faire signer.
-export async function createSaleContract(input: CreateSaleContractInput) {
+// Renvoie { error } en cas d'échec (message lisible en production),
+// redirige vers le contrat en cas de succès.
+export async function createSaleContract(input: CreateSaleContractInput): Promise<{ error: string } | undefined> {
+  let contractId: string;
+  try {
+    contractId = await createSaleContractInner(input);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Création du contrat impossible.' };
+  }
+  redirect(`/contracts/${contractId}`);
+}
+
+async function createSaleContractInner(input: CreateSaleContractInput): Promise<string> {
   const supabase = await createClient();
   const { data: userData } = await supabase.auth.getUser();
   if (!userData.user) throw new Error('Non authentifie');
@@ -53,7 +65,7 @@ export async function createSaleContract(input: CreateSaleContractInput) {
     .single();
   if (error) throw new Error(error.message);
 
-  redirect(`/contracts/${contract.id}`);
+  return contract.id;
 }
 
 export async function getSaleContracts() {

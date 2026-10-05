@@ -1,12 +1,23 @@
 import { MfaChallengeForm } from '@/components/auth/mfa-challenge-form';
+import { AuthLayout } from '@/components/auth/auth-layout';
+import { createClient } from '@/lib/supabase/server';
 
-export default function MfaChallengePage() {
+export default async function MfaChallengePage() {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc('get_organization_branding').maybeSingle();
+  const branding = (data as { name: string; logo_url: string | null } | null) ?? null;
+
   return (
-    <main className="min-h-screen flex items-center justify-center p-6">
-      <div className="w-full max-w-sm bg-white rounded-xl border p-6 space-y-4">
-        <h1 className="text-lg font-medium text-kf-navy">Vérification en deux étapes</h1>
+    <AuthLayout branding={{ name: branding?.name, logoUrl: branding?.logo_url }}>
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Vérification en deux étapes</h1>
+        <p className="mt-1.5 text-sm text-gray-500">
+          Saisissez le code à 6 chiffres affiché dans votre application d&apos;authentification.
+        </p>
+      </div>
+      <div className="mt-8">
         <MfaChallengeForm />
       </div>
-    </main>
+    </AuthLayout>
   );
 }

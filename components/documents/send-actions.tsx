@@ -2,14 +2,17 @@
 
 import { useState } from 'react';
 import { recordSending } from '@/lib/documents/actions';
+import { toWhatsappNumber } from '@/lib/utils/phone';
 
 export function SendActions({
   documentId,
+  publicToken,
   documentNumber,
   clientPhone,
   clientEmail,
 }: {
   documentId: string;
+  publicToken: string;
   documentNumber: string | null;
   clientPhone?: string | null;
   clientEmail?: string | null;
@@ -17,7 +20,10 @@ export function SendActions({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  const pdfUrl = typeof window !== 'undefined' ? `${window.location.origin}/api/documents/${documentId}/pdf` : '';
+  // Lien public par jeton (voir app/api/public/documents/[token]/pdf) : le
+  // client n'a pas de compte, l'ancien lien /api/documents/<id>/pdf le
+  // renvoyait sur la page de connexion.
+  const pdfUrl = typeof window !== 'undefined' ? `${window.location.origin}/api/public/documents/${publicToken}/pdf` : '';
   const waText = `Bonjour, voici votre document ${documentNumber ?? ''} de KF Auto : ${pdfUrl}`;
 
   async function handleWhatsApp() {
@@ -25,7 +31,7 @@ export function SendActions({
       setMessage("Ce client n'a pas de numéro de téléphone enregistré.");
       return;
     }
-    const cleanPhone = clientPhone.replace(/\D/g, '');
+    const cleanPhone = toWhatsappNumber(clientPhone);
     window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(waText)}`, '_blank');
     setBusy(true);
     try {
@@ -80,9 +86,8 @@ export function SendActions({
         </button>
       </div>
       {message && <p className="text-xs text-gray-500">{message}</p>}
-      <p className="text-[10px] text-gray-400">
-        Note test : le lien PDF pointe vers localhost, donc il ne s'ouvrira que sur ton propre réseau tant que
-        l'app n'est pas en ligne (Vercel).
+      <p className="text-[11px] text-gray-400">
+        Le client reçoit un lien personnel qui ouvre uniquement ce document, sans avoir besoin de compte.
       </p>
     </div>
   );

@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import type { DocumentType } from '@/lib/documents/actions';
 import { searchClientsSmart, searchProductsSmart, type ClientOption, type ProductOption } from '@/lib/offline/cache';
 import { createQuickClientSmart, createDocumentSmart } from '@/lib/offline/create';
+import { isLocalId } from '@/lib/offline/db';
+import { updateDocument, type EditableDocumentItem } from '@/lib/documents/edit-actions';
 import { computeDocumentTotals, formatCFA } from '@/lib/documents/calculations';
 
 type LineItem = {
@@ -29,10 +31,23 @@ const DOCUMENT_LABELS: Record<DocumentType, string> = {
 export function DocumentForm({
   documentType,
   initialClient,
+  mode = 'create',
+  documentId,
+  documentNumber,
+  initialItems,
+  initialNotes,
 }: {
   documentType: DocumentType;
   initialClient?: ClientOption | null;
+  // Mode modification (page /documents/[id]/edit) : enregistre via
+  // updateDocument au lieu de créer un nouveau document.
+  mode?: 'create' | 'edit';
+  documentId?: string;
+  documentNumber?: string | null;
+  initialItems?: EditableDocumentItem[];
+  initialNotes?: string;
 }) {
+  const isEdit = mode === 'edit';
   const router = useRouter();
   const [clientQuery, setClientQuery] = useState('');
   const [clientResults, setClientResults] = useState<ClientOption[]>([]);
@@ -49,7 +64,18 @@ export function DocumentForm({
 
   const [productQuery, setProductQuery] = useState('');
   const [productResults, setProductResults] = useState<ProductOption[]>([]);
-  const [items, setItems] = useState<LineItem[]>([]);
+  const [items, setItems] = useState<LineItem[]>(() =>
+    (initialItems ?? []).map((it) => ({
+      key: crypto.randomUUID(),
+      productId: it.productId,
+      designation: it.designation,
+      quantity: it.quantity,
+      unitPrice: it.unitPrice,
+      taxRate: it.taxRate,
+      discountPercent: it.discountPercent ?? 0,
+    }))
+  );
+  const [notes, setNotes] = useState(initialNotes ?? '');
 
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -171,6 +197,44 @@ export function DocumentForm({
       return;
     }
 
+    if (isEdit) {
+      if (!documentId) {
+        setError('Document introuvable.');
+        return;
+      }
+      if (isLocalId(selectedClient.id)) {
+        setError("Ce client a été créé hors-ligne et n'est pas encore synchronisé. Réessayez une fois la connexion revenue.");
+        return;
+      }
+      if (items.some((it) => !(it.quantity > 0))) {
+        setError('La quantité de chaque article doit être supérieure à zéro.');
+        return;
+      }
+      startTransition(async () => {
+        try {
+          const result = await updateDocument({
+            documentId,
+            clientId: selectedClient.id,
+            notes,
+            items: items.map(({ key, ...rest }) => rest),
+          });
+          if (!result.ok) {
+            setError(result.error);
+            return;
+          }
+          router.push(`/documents/${documentId}`);
+          router.refresh();
+        } catch (e) {
+          setError(
+            e instanceof Error && /fetch|network/i.test(e.message)
+              ? 'Connexion indisponible : la modification nécessite une connexion internet.'
+              : 'Erreur lors de la modification du document.'
+          );
+        }
+      });
+      return;
+    }
+
     startTransition(async () => {
       try {
         const clientLabel =
@@ -194,7 +258,11 @@ export function DocumentForm({
 
   return (
     <div className="space-y-4 pb-32">
-      <h1 className="text-lg font-semibold text-kf-navy">{DOCUMENT_LABELS[documentType]}</h1>
+      <h1 className="text-lg font-semibold text-kf-navy">
+        {isEdit
+          ? `Modifier ${DOCUMENT_LABELS[documentType].toLowerCase()}${documentNumber ? ` ${documentNumber}` : ''}`
+          : DOCUMENT_LABELS[documentType]}
+      </h1>
 
       {/* ---------- Client ---------- */}
       <section className="card p-4 space-y-2">
@@ -339,17 +407,30 @@ export function DocumentForm({
           {items.map((item) => (
             <div key={item.key} className="border border-gray-100 rounded-lg p-2.5 space-y-1.5 bg-gray-50/40">
               <div className="flex gap-2">
-                <input
-                  value={item.designation}
-                  onChange={(e) => updateItem(item.key, { designation: e.target.value })}
-                  placeholder="Désignation"
-                  className="input flex-1 bg-white"
-                />
+                {isEdit ? (
+                  // Zone multi-ligne en modification : une désignation issue du
+                  // catalogue contient des retours à la ligne (nom puis
+                  // caractéristiques) qu'un champ simple supprimerait.
+                  <textarea
+                    value={item.designation}
+                    onChange={(e) => updateItem(item.key, { designation: e.target.value })}
+                    placeholder="Désignation"
+                    rows={Math.min(6, Math.max(2, item.designation.split('\n').length))}
+                    className="input flex-1 bg-white"
+                  />
+                ) : (
+                  <input
+                    value={item.designation}
+                    onChange={(e) => updateItem(item.key, { designation: e.target.value })}
+                    placeholder="Désignation"
+                    className="input flex-1 bg-white"
+                  />
+                )}
                 <button onClick={() => removeItem(item.key)} className="btn-danger-ghost">
                   Suppr.
                 </button>
               </div>
-              <div className="grid grid-cols-3 gap-2">
+              <div className={`grid gap-2 ${isEdit ? 'grid-cols-4' : 'grid-cols-3'}`}>
                 <label className="text-xs text-gray-500">
                   Qté
                   <input
@@ -380,6 +461,19 @@ export function DocumentForm({
                     className="input mt-0.5"
                   />
                 </label>
+                {isEdit && (
+                  <label className="text-xs text-gray-500">
+                    Remise %
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={item.discountPercent}
+                      onChange={(e) => updateItem(item.key, { discountPercent: Number(e.target.value) })}
+                      className="input mt-0.5"
+                    />
+                  </label>
+                )}
               </div>
             </div>
           ))}
@@ -404,12 +498,44 @@ export function DocumentForm({
         </section>
       )}
 
+      {/* ---------- Notes (modification uniquement) ---------- */}
+      {isEdit && (
+        <section className="card p-4 space-y-2">
+          <label htmlFor="document-notes" className="field-label uppercase tracking-wide block">
+            Notes
+          </label>
+          <textarea
+            id="document-notes"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={3}
+            placeholder="Notes (optionnel)"
+            className="input"
+          />
+        </section>
+      )}
+
       {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
 
       <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur border-t border-gray-100 p-3 shadow-[0_-4px_12px_rgba(0,0,0,0.04)]">
-        <button onClick={handleSubmit} disabled={isPending} className="btn-primary w-full max-w-3xl mx-auto">
-          {isPending ? 'Enregistrement...' : `Créer ${DOCUMENT_LABELS[documentType].toLowerCase()}`}
-        </button>
+        {isEdit ? (
+          <div className="flex gap-2 w-full max-w-3xl mx-auto">
+            <button
+              onClick={() => router.push(`/documents/${documentId}`)}
+              disabled={isPending}
+              className="btn-secondary flex-1"
+            >
+              Annuler
+            </button>
+            <button onClick={handleSubmit} disabled={isPending} className="btn-primary flex-1">
+              {isPending ? 'Enregistrement...' : 'Enregistrer les modifications'}
+            </button>
+          </div>
+        ) : (
+          <button onClick={handleSubmit} disabled={isPending} className="btn-primary w-full max-w-3xl mx-auto">
+            {isPending ? 'Enregistrement...' : `Créer ${DOCUMENT_LABELS[documentType].toLowerCase()}`}
+          </button>
+        )}
       </div>
     </div>
   );

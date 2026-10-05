@@ -83,13 +83,14 @@ export function ContractForm({ initialProduct }: { initialProduct?: ProductOptio
 
     startTransition(async () => {
       try {
-        await createSaleContract({
+        const result = await createSaleContract({
           clientId: selectedClient.id,
           productId: selectedProduct.id,
           salePrice,
           paymentTerms,
           notes,
         });
+        if (result?.error) setError(result.error);
       } catch (e) {
         if (e instanceof Error && e.message === 'NEXT_REDIRECT') return;
         setError(e instanceof Error ? e.message : 'Erreur lors de la création du contrat');

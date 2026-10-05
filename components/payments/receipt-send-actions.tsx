@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { formatCFA } from '@/lib/documents/calculations';
 import { recordSending } from '@/lib/documents/actions';
+import { toWhatsappNumber } from '@/lib/utils/phone';
 
 // Affiché juste après l'enregistrement d'un paiement (même partiel) : permet
 // d'envoyer immédiatement un reçu au client par WhatsApp ou email, avec le
@@ -11,6 +12,7 @@ import { recordSending } from '@/lib/documents/actions';
 // SendActions, plutôt que de générer un nouveau document PDF de reçu.
 export function ReceiptSendActions({
   documentId,
+  publicToken,
   documentNumber,
   amountPaid,
   balanceDue,
@@ -19,6 +21,7 @@ export function ReceiptSendActions({
   onDismiss,
 }: {
   documentId: string;
+  publicToken: string;
   documentNumber: string | null;
   amountPaid: number;
   balanceDue: number;
@@ -29,7 +32,7 @@ export function ReceiptSendActions({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  const pdfUrl = typeof window !== 'undefined' ? `${window.location.origin}/api/documents/${documentId}/pdf` : '';
+  const pdfUrl = typeof window !== 'undefined' ? `${window.location.origin}/api/public/documents/${publicToken}/pdf` : '';
   const soldeLine =
     balanceDue > 0
       ? `Solde restant : ${formatCFA(balanceDue)}.`
@@ -43,7 +46,7 @@ export function ReceiptSendActions({
       setMessage("Ce client n'a pas de numéro de téléphone enregistré.");
       return;
     }
-    const cleanPhone = clientPhone.replace(/\D/g, '');
+    const cleanPhone = toWhatsappNumber(clientPhone);
     window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(receiptText)}`, '_blank');
     setBusy(true);
     try {

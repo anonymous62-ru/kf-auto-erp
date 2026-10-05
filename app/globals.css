@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,17 +6,17 @@
 
 @layer base {
   html {
-    font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
-    scroll-behavior: smooth;
+    font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    font-feature-settings: 'cv11', 'ss01';
+    -webkit-tap-highlight-color: transparent;
   }
   body {
-    background: linear-gradient(180deg, #f3f5fa 0%, #eef1f7 100%);
-    background-attachment: fixed;
+    background-color: #f4f5f7;
+    color: #111827;
   }
   ::selection {
-    background-color: #f7941d55;
+    background-color: #f7941d40;
   }
-  /* Ascenseur discret, cohérent avec l'identité visuelle */
   ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
@@ -25,27 +25,27 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background-color: #1b2a4a33;
-    border-radius: 999px;
+    background-color: #1b2a4a26;
+    border-radius: 8px;
   }
 }
 
 @layer components {
   /* ---------- Boutons ---------- */
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-kf-navy text-white font-medium text-sm py-3 px-4
-      shadow-sm shadow-kf-navy/20 transition-all duration-150
-      hover:bg-[#25396b] hover:shadow-md active:scale-[0.98]
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-kf-navy text-white font-medium text-sm py-2.5 px-4
+      shadow-sm transition-colors duration-150
+      hover:bg-kf-navy-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kf-orange/50 focus-visible:ring-offset-2
       disabled:opacity-60 disabled:pointer-events-none;
   }
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white text-kf-navy font-medium text-sm py-3 px-4
-      shadow-sm transition-all duration-150
-      hover:border-kf-navy/30 hover:bg-kf-navy/5 active:scale-[0.98]
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white text-gray-800 font-medium text-sm py-2.5 px-4
+      shadow-sm transition-colors duration-150
+      hover:bg-gray-50 hover:border-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kf-navy/30 focus-visible:ring-offset-2
       disabled:opacity-60 disabled:pointer-events-none;
   }
   .btn-danger-ghost {
-    @apply inline-flex items-center justify-center gap-1 rounded-lg text-red-600 text-xs font-medium px-2 py-1
+    @apply inline-flex items-center justify-center gap-1 rounded-md text-red-600 text-xs font-medium px-2 py-1
       transition-colors hover:bg-red-50;
   }
   .btn-link {
@@ -54,38 +54,49 @@
 
   /* ---------- Cartes ---------- */
   .card {
-    @apply bg-white rounded-2xl border border-gray-100 shadow-sm shadow-gray-200/60;
+    @apply bg-white rounded-xl border border-gray-200/80 shadow-[0_1px_2px_rgba(16,24,40,0.04)];
   }
   .card-hover {
-    @apply transition-all duration-150 hover:shadow-md hover:-translate-y-0.5;
+    @apply transition-colors duration-150 hover:border-gray-300 hover:bg-gray-50/60;
+  }
+  .card-header {
+    @apply flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-100;
+  }
+  .card-title {
+    @apply text-sm font-semibold text-gray-900;
   }
 
   /* ---------- Champs ---------- */
   .field-label {
-    @apply text-xs font-medium text-gray-500;
+    @apply text-xs font-medium text-gray-600;
   }
   .input {
-    @apply w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white
+    @apply w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 placeholder:text-gray-400
       transition-shadow duration-150
-      focus:outline-none focus:ring-2 focus:ring-kf-orange/40 focus:border-kf-orange/60;
+      focus:outline-none focus:ring-2 focus:ring-kf-navy/15 focus:border-kf-navy/60;
   }
 
   /* ---------- Badges de statut ---------- */
   .badge {
-    @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium;
+    @apply inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium ring-1 ring-inset;
   }
-  .badge-navy { @apply badge bg-kf-navy/10 text-kf-navy; }
-  .badge-red { @apply badge bg-red-100 text-red-700; }
-  .badge-orange { @apply badge bg-orange-100 text-orange-700; }
-  .badge-green { @apply badge bg-green-100 text-green-700; }
-  .badge-gray { @apply badge bg-gray-100 text-gray-600; }
+  .badge-navy { @apply badge bg-kf-navy/5 text-kf-navy ring-kf-navy/15; }
+  .badge-red { @apply badge bg-red-50 text-red-700 ring-red-600/15; }
+  .badge-orange { @apply badge bg-orange-50 text-orange-700 ring-orange-600/20; }
+  .badge-green { @apply badge bg-emerald-50 text-emerald-700 ring-emerald-600/20; }
+  .badge-gray { @apply badge bg-gray-50 text-gray-600 ring-gray-500/15; }
+
+  /* Chiffres alignés dans les tableaux et indicateurs */
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
 
   /* Bande tricolore signature (reprend celle des documents PDF/DOCX) */
   .brand-stripe {
-    @apply h-1.5 w-full flex overflow-hidden;
+    @apply h-1 w-full flex overflow-hidden;
   }
   .brand-stripe > span:nth-child(1) { @apply bg-kf-red flex-[2]; }
   .brand-stripe > span:nth-child(2) { @apply bg-kf-orange flex-[1]; }
-  .brand-stripe > span:nth-child(3) { @apply bg-kf-navy flex-[3]; }
+  .brand-stripe > span:nth-child(3) { @apply bg-kf-navy-400 flex-[3]; }
   .brand-stripe > span:nth-child(4) { @apply bg-black flex-[1]; }
 }

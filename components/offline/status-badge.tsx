@@ -53,16 +53,23 @@ export function OfflineStatusBadge() {
   }
 
   if (isOnline && pending === 0) {
-    return <span className="text-xs text-green-300">● Synchronisé</span>;
+    return (
+      <span className="hidden sm:inline-flex items-center gap-1.5 text-xs text-gray-500">
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+        Synchronisé
+      </span>
+    );
   }
 
   return (
     <button
       onClick={handleManualSync}
       disabled={!isOnline || syncing}
-      className="text-xs px-2 py-1 rounded-full bg-white/10 flex items-center gap-1"
+      className={`text-xs px-2 py-1 rounded-md border flex items-center gap-1.5 font-medium ${
+        isOnline ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-red-200 bg-red-50 text-red-700'
+      }`}
     >
-      <span className={isOnline ? 'text-amber-300' : 'text-red-300'}>●</span>
+      <span className={`h-1.5 w-1.5 rounded-full ${isOnline ? 'bg-amber-500' : 'bg-red-500'}`} />
       {!isOnline ? 'Hors ligne' : syncing ? 'Synchro...' : `${pending} en attente`}
     </button>
   );

@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
+import { applyClientSearch } from '@/lib/search';
 
 export interface CreateClientInput {
   clientType: 'particulier' | 'entreprise';
@@ -113,11 +114,7 @@ export async function searchClientsFull(query: string) {
     .order('created_at', { ascending: false })
     .limit(50);
 
-  if (query.trim()) {
-    request = request.or(
-      `first_name.ilike.%${query}%,last_name.ilike.%${query}%,company_name.ilike.%${query}%,phone.ilike.%${query}%`
-    );
-  }
+  request = applyClientSearch(request, query);
   const { data, error } = await request;
   if (error) throw new Error(error.message);
   return data ?? [];

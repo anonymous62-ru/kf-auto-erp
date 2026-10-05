@@ -112,6 +112,21 @@ export async function updateUserProfile(userId: string, input: UpdateUserProfile
   if (!input.fullName.trim()) throw new Error('Le nom complet est obligatoire.');
   if (!input.email.trim()) throw new Error("L'email est obligatoire.");
 
+  // Vérifier la cible AVANT de toucher au compte Auth : sans ce contrôle,
+  // un administrateur pouvait remplacer l'email du super admin par le sien,
+  // demander un nouveau mot de passe et prendre le contrôle du compte.
+  const supabase = await createClient();
+  const { data: target } = await supabase
+    .from('profiles')
+    .select('id, role')
+    .eq('id', userId)
+    .eq('organization_id', profile.organization_id)
+    .maybeSingle();
+  if (!target) throw new Error('Utilisateur introuvable dans votre organisation.');
+  if (target.role === 'super_admin' && profile.role !== 'super_admin') {
+    throw new Error('Seul un super admin peut modifier un compte super admin.');
+  }
+
   const admin = createAdminClient();
 
   const { error: authError } = await admin.auth.admin.updateUserById(userId, {
@@ -120,7 +135,6 @@ export async function updateUserProfile(userId: string, input: UpdateUserProfile
   });
   if (authError) throw new Error(authError.message);
 
-  const supabase = await createClient();
   const { error } = await supabase
     .from('profiles')
     .update({ full_name: input.fullName, email: input.email, phone: input.phone })

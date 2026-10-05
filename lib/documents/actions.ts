@@ -2,7 +2,10 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { computeDocumentTotals, type DocumentItemInput } from '@/lib/documents/calculations';
+import { applyFactureStockDeduction } from '@/lib/documents/stock-deduction';
 import { redirect } from 'next/navigation';
+import { revalidatePath } from 'next/cache';
+import { applyClientSearch } from '@/lib/search';
 
 export type DocumentType = 'proforma' | 'devis' | 'facture' | 'bon_livraison' | 'recu' | 'avoir';
 
@@ -15,11 +18,7 @@ export async function searchClients(query: string) {
     .order('created_at', { ascending: false })
     .limit(15);
 
-  if (query.trim()) {
-    request = request.or(
-      `first_name.ilike.%${query}%,last_name.ilike.%${query}%,company_name.ilike.%${query}%,phone.ilike.%${query}%`
-    );
-  }
+  request = applyClientSearch(request, query);
 
   const { data, error } = await request;
   if (error) throw new Error(error.message);
@@ -160,6 +159,18 @@ export async function createDocument(input: CreateDocumentInput) {
   const { error: itemsError } = await supabase.from('document_items').insert(itemRows);
   if (itemsError) throw new Error(itemsError.message);
 
+  // Règle du DG (04/10) : une facture retire automatiquement du stock ce
+  // qu'elle contient — un devis, lui, ne touche jamais au stock.
+  if (input.documentType === 'facture') {
+    await applyFactureStockDeduction(supabase, {
+      organizationId: profile.organization_id,
+      documentId: document.id,
+      documentNumber: document.document_number,
+      items: input.items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+      performedBy: userData.user.id,
+    });
+  }
+
   redirect(`/documents/${document.id}`);
 }
 
@@ -168,7 +179,24 @@ export async function createDocument(input: CreateDocumentInput) {
 // sans ressaisir les lignes. Le document source est marque "accepte" et reste
 // consultable ; la nouvelle facture recoit son propre numero officiel et est
 // liee via parent_document_id.
-export async function convertToFacture(sourceDocumentId: string) {
+// Renvoie { error } en cas de refus (message lisible en production, où
+// Next.js masque les erreurs levées) ; redirige vers la facture en cas de
+// succès, ou vers la facture déjà existante si le devis a déjà été converti.
+export async function convertToFacture(sourceDocumentId: string): Promise<{ error: string } | undefined> {
+  let target: string;
+  try {
+    target = await convertToFactureInner(sourceDocumentId);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    if (/row-level security/i.test(message)) {
+      return { error: "Vous n'avez pas le droit de convertir ce document." };
+    }
+    return { error: message || 'La conversion a échoué.' };
+  }
+  redirect(`/documents/${target}`);
+}
+
+async function convertToFactureInner(sourceDocumentId: string): Promise<string> {
   const supabase = await createClient();
   const { data: userData } = await supabase.auth.getUser();
   if (!userData.user) throw new Error('Non authentifie');
@@ -191,6 +219,18 @@ export async function convertToFacture(sourceDocumentId: string) {
   if (!['devis', 'proforma'].includes(source.document_type)) {
     throw new Error('Seul un devis ou une proforma peut être converti en facture.');
   }
+
+  // Garde anti double-clic / double conversion : si une facture existe déjà
+  // pour ce devis, on l'ouvre au lieu d'en créer une seconde (qui aurait
+  // consommé un numéro et retiré le stock deux fois).
+  const { data: existingInvoice } = await supabase
+    .from('documents')
+    .select('id')
+    .eq('parent_document_id', sourceDocumentId)
+    .eq('document_type', 'facture')
+    .limit(1)
+    .maybeSingle();
+  if (existingInvoice) return existingInvoice.id;
 
   const { data: sourceItems, error: itemsFetchError } = await supabase
     .from('document_items')
@@ -248,7 +288,17 @@ export async function convertToFacture(sourceDocumentId: string) {
   // le devis/proforma d'origine est marque "accepte" (n'a plus de sens de le renvoyer tel quel)
   await supabase.from('documents').update({ status: 'accepte' }).eq('id', source.id);
 
-  redirect(`/documents/${facture.id}`);
+  // Règle du DG (04/10) : la conversion en facture retire du stock ce que
+  // le devis d'origine contenait (le devis lui-même n'y avait jamais touché).
+  await applyFactureStockDeduction(supabase, {
+    organizationId: profile.organization_id,
+    documentId: facture.id,
+    documentNumber: documentNumber,
+    items: sourceItems.map((i) => ({ productId: i.product_id, quantity: i.quantity })),
+    performedBy: userData.user.id,
+  });
+
+  return facture.id;
 }
 
 // ---------- Historique d'envoi ----------
@@ -281,29 +331,42 @@ export async function recordSending(input: {
 // paiement a déjà été enregistré dessus : on ne veut jamais perdre un
 // historique financier par erreur ; il faut d'abord annuler/rembourser le
 // paiement séparément.
-export async function deleteDocument(documentId: string) {
+export type DeleteDocumentResult =
+  | { ok: false; error: string; needsPaymentConfirmation?: false }
+  | { ok: false; needsPaymentConfirmation: true; paidAmount: number; error?: undefined };
+
+// Renvoie un résultat au lieu de lever une erreur : en production, Next.js
+// remplace le message de toute erreur levée dans une Server Action par un
+// texte générique en anglais ("An error occurred in the Server Components
+// render..."), qui empêchait de comprendre pourquoi une facture ne partait
+// pas. En cas de succès, redirige vers la liste des documents.
+export async function deleteDocument(documentId: string, withPayments = false): Promise<DeleteDocumentResult> {
   const supabase = await createClient();
   const { data: userData } = await supabase.auth.getUser();
-  if (!userData.user) throw new Error('Non authentifie');
+  if (!userData.user) return { ok: false, error: 'Session expirée, reconnectez-vous.' };
 
-  const { data: document, error: documentError } = await supabase
-    .from('documents')
-    .select('id, document_number, amount_paid')
-    .eq('id', documentId)
-    .maybeSingle();
-  if (documentError) throw new Error(documentError.message);
-  if (!document) throw new Error('Document introuvable');
+  const { error } = await supabase.rpc('delete_document_secure', {
+    p_document_id: documentId,
+    p_with_payments: withPayments,
+  });
 
-  if (Number(document.amount_paid) > 0) {
-    throw new Error(
-      "Impossible de supprimer ce document : un paiement y est déjà enregistré. Contactez un administrateur si besoin."
-    );
+  if (error) {
+    if (error.message.includes('PAIEMENTS_A_CONFIRMER')) {
+      const { data: doc } = await supabase.from('documents').select('amount_paid').eq('id', documentId).maybeSingle();
+      return { ok: false, needsPaymentConfirmation: true, paidAmount: Number(doc?.amount_paid ?? 0) };
+    }
+    if (error.message.includes('delete_document_secure')) {
+      return {
+        ok: false,
+        error: "La fonction de suppression n'est pas encore installée dans la base (migration 0023 à exécuter dans Supabase).",
+      };
+    }
+    return { ok: false, error: error.message };
   }
 
-  const { error } = await supabase.from('documents').delete().eq('id', documentId);
-  if (error) throw new Error(error.message);
-
-  redirect('/dashboard');
+  revalidatePath('/documents');
+  revalidatePath('/dashboard');
+  redirect('/documents');
 }
 
 export async function getSendingHistory(documentId: string) {

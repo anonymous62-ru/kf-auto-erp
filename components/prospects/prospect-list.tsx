@@ -8,6 +8,9 @@ type ProspectRow = {
   id: string;
   first_name?: string | null;
   last_name?: string | null;
+  company_name?: string | null;
+  contact_name?: string | null;
+  sector?: string | null;
   phone?: string | null;
   status: ProspectStatus;
   vehicle_interest?: string | null;
@@ -87,9 +90,12 @@ export function ProspectList({ initialProspects }: { initialProspects: ProspectR
           <Link key={p.id} href={`/prospects/${p.id}`} className="block bg-white rounded-lg border p-3 text-sm hover:bg-gray-50">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <p className="font-medium">{`${p.first_name ?? ''} ${p.last_name ?? ''}`.trim() || 'Sans nom'}</p>
+                <p className="font-medium">
+                  {p.company_name || `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim() || 'Sans nom'}
+                </p>
+                {p.contact_name && <p className="text-gray-600 text-xs">{p.contact_name}</p>}
                 <p className="text-gray-500 text-xs">
-                  {p.phone} {p.vehicle_interest ? `- ${p.vehicle_interest}` : ''}
+                  {[p.phone, p.sector, p.vehicle_interest].filter(Boolean).join(' · ')}
                 </p>
                 {isOverdue(p.next_relance_at) && p.status !== 'converti' && p.status !== 'perdu' && (
                   <p className="text-xs text-kf-red mt-0.5">Relance en retard</p>

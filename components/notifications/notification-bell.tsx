@@ -68,10 +68,10 @@ export function NotificationBell() {
 
   return (
     <div className="relative">
-      <button onClick={() => setOpen((o) => !o)} className="relative text-white/90 px-1.5" aria-label="Notifications">
+      <button onClick={() => setOpen((o) => !o)} className="relative rounded-md p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900" aria-label="Notifications">
         <IconBell className="w-5 h-5" />
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 bg-kf-red text-white text-[10px] leading-none rounded-full px-1.5 py-0.5">
+          <span className="absolute -top-0.5 -right-0.5 bg-kf-red text-white text-[10px] font-semibold leading-none rounded-full min-w-[16px] px-1 py-0.5 text-center ring-2 ring-white">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
@@ -80,7 +80,7 @@ export function NotificationBell() {
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 mt-2 w-80 max-w-[90vw] bg-white text-gray-900 rounded-lg border shadow-lg z-20 max-h-96 overflow-y-auto">
+          <div className="absolute right-0 mt-2 w-80 max-w-[90vw] bg-white text-gray-900 rounded-xl border border-gray-200 shadow-lg z-20 max-h-96 overflow-y-auto">
             <div className="flex items-center justify-between px-3 py-2 border-b">
               <span className="text-sm font-medium">Notifications</span>
               {unreadCount > 0 && (

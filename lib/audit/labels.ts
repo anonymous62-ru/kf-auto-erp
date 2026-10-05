@@ -9,6 +9,7 @@ const TABLE_LABELS: Record<string, string> = {
   documents: 'Document',
   clients: 'Client',
   payments: 'Paiement',
+  prospects: 'Prospects',
 };
 
 const ACTION_LABELS: Record<string, string> = {
@@ -16,6 +17,7 @@ const ACTION_LABELS: Record<string, string> = {
   update: 'Modification',
   delete: 'Suppression',
   login: 'Connexion',
+  export: 'Export Excel',
 };
 
 export function tableLabel(table: string) {

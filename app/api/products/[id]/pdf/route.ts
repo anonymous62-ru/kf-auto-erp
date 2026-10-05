@@ -48,8 +48,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     });
   } catch (e) {
     console.error('[vehicle-pdf] génération échouée :', e);
-    const message = e instanceof Error ? e.message : String(e);
-    const stack = e instanceof Error ? e.stack : undefined;
-    return NextResponse.json({ error: 'Échec de la génération de la fiche', details: message, stack }, { status: 500 });
+    // Détail gardé dans les logs Vercel (ligne ci-dessus), jamais renvoyé au navigateur.
+    return NextResponse.json({ error: 'Échec de la génération de la fiche' }, { status: 500 });
   }
 }

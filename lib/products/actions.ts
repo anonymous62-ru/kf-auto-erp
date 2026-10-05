@@ -45,6 +45,8 @@ export async function getProducts() {
   const { data, error } = await supabase
     .from('products')
     .select('id, designation, sku, brand, model, sale_price, tax_rate, quantity_on_hand, stock_min, is_active')
+    // Produits archivés (supprimés mais encore cités dans d'anciens documents) : masqués.
+    .or('is_archived.is.null,is_archived.eq.false')
     .order('designation');
   if (error) throw new Error(error.message);
   return data ?? [];
@@ -138,4 +140,22 @@ export async function adjustStock(input: { productId: string; quantity: number; 
   if (updateError) throw new Error(updateError.message);
 
   revalidatePath('/products');
+}
+
+// Suppression d'un produit (fonction SQL delete_product_secure, migration
+// 0023). Un produit déjà présent dans un devis, une facture, un contrat ou
+// une garantie n'est pas effacé mais archivé (retiré du catalogue), pour ne
+// pas casser ces documents. Renvoie un résultat plutôt que de lever une
+// erreur, pour que le vrai message s'affiche aussi en production.
+export async function deleteProduct(productId: string): Promise<{ ok: true; archived: boolean } | { ok: false; error: string }> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('delete_product_secure', { p_product_id: productId });
+  if (error) {
+    if (error.message.includes('delete_product_secure')) {
+      return { ok: false, error: "La fonction de suppression n'est pas encore installée dans la base (migration 0023 à exécuter dans Supabase)." };
+    }
+    return { ok: false, error: error.message };
+  }
+  revalidatePath('/products');
+  return { ok: true, archived: data === 'archived' };
 }

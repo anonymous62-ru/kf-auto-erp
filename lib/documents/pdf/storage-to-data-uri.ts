@@ -8,7 +8,24 @@
 // elimine ce risque completement, que le bucket soit public ou prive.
 import { createAdminClient } from '@/lib/supabase/admin';
 
+// Seuls les fichiers de NOTRE projet Supabase, dans ces dossiers, peuvent
+// être lus avec la clé service_role. Avant, n'importe quelle URL stockée en
+// base (ex. une "photo de véhicule" saisie à la main) était téléchargée par
+// le serveur, y compris une signature client d'un autre dossier ou une
+// adresse interne (fuite de fichier / SSRF via la fiche PDF publique).
+const ALLOWED_BUCKETS = ['logos', 'org-branding', 'vehicle-photos', 'document-signatures'];
+
+function isOurStorageHost(url: string) {
+  try {
+    const expected = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!).host;
+    return new URL(url).host === expected;
+  } catch {
+    return false;
+  }
+}
+
 function parseSupabaseStorageUrl(url: string): { bucket: string; path: string } | null {
+  if (!isOurStorageHost(url)) return null;
   const marker = '/storage/v1/object/public/';
   const signedMarker = '/storage/v1/object/sign/';
   const idx = url.indexOf(marker);
@@ -22,7 +39,17 @@ function parseSupabaseStorageUrl(url: string): { bucket: string; path: string } 
 
   const slashIdx = rest.indexOf('/');
   if (slashIdx === -1) return null;
-  return { bucket: rest.slice(0, slashIdx), path: decodeURIComponent(rest.slice(slashIdx + 1)) };
+  const bucket = rest.slice(0, slashIdx);
+  const path = decodeURIComponent(rest.slice(slashIdx + 1));
+  if (!ALLOWED_BUCKETS.includes(bucket) || path.includes('..')) return null;
+  return { bucket, path };
+}
+
+// Vérifie qu'une URL désigne bien un fichier d'un dossier donné de notre
+// stockage (utilisé à l'enregistrement d'une photo de véhicule).
+export function isStorageUrlInBucket(url: string, bucket: string) {
+  const parsed = parseSupabaseStorageUrl(url);
+  return !!parsed && parsed.bucket === bucket;
 }
 
 export async function urlToDataUri(url: string | null | undefined): Promise<string | undefined> {
@@ -40,12 +67,8 @@ export async function urlToDataUri(url: string | null | undefined): Promise<stri
       return `data:${mime};base64,${buffer.toString('base64')}`;
     }
 
-    // URL externe (pas un fichier Supabase Storage) : recuperation directe
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const buffer = Buffer.from(await response.arrayBuffer());
-    const mime = response.headers.get('content-type') || 'image/png';
-    return `data:${mime};base64,${buffer.toString('base64')}`;
+    // URL externe ou dossier non autorisé : jamais téléchargée par le serveur.
+    throw new Error('URL hors du stockage autorisé');
   } catch (e) {
     // on ne fait JAMAIS planter le PDF pour une image manquante : on la saute simplement
     console.error(`[pdf] impossible de récupérer l'image ${url} :`, e instanceof Error ? e.message : e);
@@ -84,10 +107,8 @@ export async function urlToImageBuffer(
       return { buffer, type: mimeToDocxType(data.type || 'image/png') };
     }
 
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const buffer = Buffer.from(await response.arrayBuffer());
-    return { buffer, type: mimeToDocxType(response.headers.get('content-type') || 'image/png') };
+    // URL externe ou dossier non autorisé : jamais téléchargée par le serveur.
+    throw new Error('URL hors du stockage autorisé');
   } catch (e) {
     console.error(`[docx] impossible de récupérer l'image ${url} :`, e instanceof Error ? e.message : e);
     return undefined;

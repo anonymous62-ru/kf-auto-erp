@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { formatCFA } from '@/lib/documents/calculations';
 import { IconChat } from '@/components/icons';
+import { toWhatsappNumber } from '@/lib/utils/phone';
 
 // Partage rapide d'un véhicule au client par WhatsApp : pas besoin qu'il ait
 // un compte, ni que ce soit forcément un client déjà enregistré — on
@@ -35,7 +36,7 @@ export function VehicleWhatsappShare({
     `(${designation}) - ${formatCFA(salePrice)}. Fiche complète avec photos : ${sheetUrl}`;
 
   function handleShareLink() {
-    const cleanPhone = phone.replace(/\D/g, '');
+    const cleanPhone = toWhatsappNumber(phone);
     if (!cleanPhone) {
       // pas de numéro : on ouvre WhatsApp Web sans destinataire pré-rempli,
       // l'utilisateur choisit le contact lui-même dans l'application.

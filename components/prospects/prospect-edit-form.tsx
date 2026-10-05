@@ -22,6 +22,9 @@ export function ProspectEditForm({
     id: string;
     first_name: string | null;
     last_name: string | null;
+    company_name?: string | null;
+    contact_name?: string | null;
+    sector?: string | null;
     phone: string | null;
     whatsapp: string | null;
     email: string | null;
@@ -33,6 +36,9 @@ export function ProspectEditForm({
   vehicles: { id: string; designation: string }[];
 }) {
   const [form, setForm] = useState({
+    companyName: prospect.company_name ?? '',
+    contactName: prospect.contact_name ?? '',
+    sector: prospect.sector ?? '',
     firstName: prospect.first_name ?? '',
     lastName: prospect.last_name ?? '',
     phone: prospect.phone ?? '',
@@ -66,6 +72,26 @@ export function ProspectEditForm({
   return (
     <div className="space-y-3">
       <div className="bg-white rounded-lg border p-3 space-y-2">
+        <input
+          placeholder="Entreprise (si client professionnel)"
+          value={form.companyName}
+          onChange={(e) => update('companyName', e.target.value)}
+          className="w-full border rounded-md px-2 py-1.5 text-sm"
+        />
+        <div className="grid grid-cols-2 gap-2">
+          <input
+            placeholder="Personne à contacter, fonction"
+            value={form.contactName}
+            onChange={(e) => update('contactName', e.target.value)}
+            className="border rounded-md px-2 py-1.5 text-sm"
+          />
+          <input
+            placeholder="Secteur d'activité"
+            value={form.sector}
+            onChange={(e) => update('sector', e.target.value)}
+            className="border rounded-md px-2 py-1.5 text-sm"
+          />
+        </div>
         <div className="grid grid-cols-2 gap-2">
           <input
             placeholder="Prénom"

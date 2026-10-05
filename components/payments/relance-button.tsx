@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { markReminderSent } from '@/lib/payments/actions';
+import { toWhatsappNumber } from '@/lib/utils/phone';
 
 export function RelanceButton({
   documentId,
@@ -41,7 +42,7 @@ export function RelanceButton({
       setMessage('Pas de numéro enregistré pour ce client.');
       return;
     }
-    window.open(`https://wa.me/${clientPhone.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`, '_blank');
+    window.open(`https://wa.me/${toWhatsappNumber(clientPhone)}?text=${encodeURIComponent(text)}`, '_blank');
     void afterSend();
   }
 

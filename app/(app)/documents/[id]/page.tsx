@@ -4,7 +4,8 @@ import { notFound } from 'next/navigation';
 import { SendActions } from '@/components/documents/send-actions';
 import { PaymentForm } from '@/components/payments/payment-form';
 import { getPayments } from '@/lib/payments/actions';
-import { convertToFacture } from '@/lib/documents/actions';
+import { ConvertToFactureButton } from '@/components/documents/convert-to-facture-button';
+import { signedStorageUrl } from '@/lib/storage/signed-url';
 import { DeleteDocumentButton } from '@/components/documents/delete-document-button';
 
 const DOCUMENT_LABELS: Record<string, string> = {
@@ -29,10 +30,18 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
   const { id } = await params;
   const supabase = await createClient();
 
+  // Suppression réservée à la direction (règle du 04/10) : le bouton n'est
+  // affiché qu'à elle, la base refuse de toute façon pour les autres.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: me } = await supabase.from('profiles').select('role').eq('id', user?.id ?? '').maybeSingle();
+  const canDelete = ['super_admin', 'administrateur', 'manager'].includes(me?.role ?? '');
+
   const { data: document } = await supabase
     .from('documents')
     .select(
-      `id, document_type, document_number, status, subtotal, tax_amount, total_amount, amount_paid, balance_due,
+      `id, public_token, document_type, document_number, status, subtotal, tax_amount, total_amount, amount_paid, balance_due,
        due_date, issue_date, commercial_signature_url, client_signature_url, client_id,
        clients (first_name, last_name, company_name, phone, email)`
     )
@@ -50,6 +59,10 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
   const payments = await getPayments(id);
 
   const client = Array.isArray(document.clients) ? document.clients[0] : document.clients;
+  const [commercialSignature, clientSignature] = await Promise.all([
+    signedStorageUrl(document.commercial_signature_url),
+    signedStorageUrl(document.client_signature_url),
+  ]);
   const balanceDue = Number(document.balance_due);
   const isFactureOuRecu = document.document_type === 'facture' || document.document_type === 'recu';
   const canConvertToFacture =
@@ -64,6 +77,11 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
           {client?.company_name || `${client?.first_name ?? ''} ${client?.last_name ?? ''}`}
         </p>
         <p className="text-xs text-gray-400 mt-1">Statut : {document.status}</p>
+        {Number(document.amount_paid) === 0 && document.document_number && (
+          <a href={`/documents/${document.id}/edit`} className="btn-secondary mt-3 w-full sm:w-auto">
+            Modifier (client, articles, prix)
+          </a>
+        )}
       </div>
 
       <div className="bg-white rounded-lg border divide-y">
@@ -99,13 +117,13 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
         <div className="bg-white rounded-lg border p-3 grid grid-cols-2 gap-3">
           <div>
             <p className="text-xs text-gray-500 mb-1">Signature commerciale</p>
-            {document.commercial_signature_url && (
-              <img src={document.commercial_signature_url} alt="Signature commerciale" className="border rounded-md" />
+            {commercialSignature && (
+              <img src={commercialSignature} alt="Signature commerciale" className="border rounded-md" />
             )}
           </div>
           <div>
             <p className="text-xs text-gray-500 mb-1">Signature client</p>
-            <img src={document.client_signature_url} alt="Signature client" className="border rounded-md" />
+            {clientSignature && <img src={clientSignature} alt="Signature client" className="border rounded-md" />}
           </div>
         </div>
       ) : (
@@ -133,19 +151,11 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
         </a>
       </div>
 
-      {canConvertToFacture && (
-        <form action={convertToFacture.bind(null, document.id)}>
-          <button
-            type="submit"
-            className="w-full bg-kf-orange text-white rounded-md py-3 text-sm font-medium"
-          >
-            Convertir en facture
-          </button>
-        </form>
-      )}
+      {canConvertToFacture && <ConvertToFactureButton documentId={document.id} />}
 
       <SendActions
         documentId={document.id}
+        publicToken={document.public_token}
         documentNumber={document.document_number}
         clientPhone={client?.phone}
         clientEmail={client?.email}
@@ -176,6 +186,7 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
           {balanceDue > 0 && (
             <PaymentForm
               documentId={document.id}
+              publicToken={document.public_token}
               documentNumber={document.document_number}
               clientId={document.client_id}
               balanceDue={balanceDue}
@@ -186,7 +197,7 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
         </div>
       )}
 
-      <DeleteDocumentButton documentId={document.id} documentNumber={document.document_number} />
+      {canDelete && <DeleteDocumentButton documentId={document.id} documentNumber={document.document_number} />}
     </div>
   );
 }

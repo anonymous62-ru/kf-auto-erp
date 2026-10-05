@@ -3,6 +3,7 @@
 // - Hors-ligne : filtre directement le cache IndexedDB.
 import { createClient } from '@/lib/supabase/client';
 import { db, type CachedClient, type CachedProduct } from '@/lib/offline/db';
+import { applyClientSearch, matchesAllTerms } from '@/lib/search';
 
 export type ClientOption = {
   id: string;
@@ -24,9 +25,9 @@ export type ProductOption = {
   tax_rate: number;
 };
 
+// Hors-ligne : chaque mot saisi doit apparaître quelque part dans la fiche.
 function matches(haystack: (string | undefined)[], query: string) {
-  const q = query.toLowerCase();
-  return haystack.some((h) => h?.toLowerCase().includes(q));
+  return matchesAllTerms(haystack, query);
 }
 
 export async function searchClientsSmart(query: string): Promise<ClientOption[]> {
@@ -38,11 +39,7 @@ export async function searchClientsSmart(query: string): Promise<ClientOption[]>
         .select('id, first_name, last_name, company_name, phone, email, address')
         .order('created_at', { ascending: false })
         .limit(15);
-      if (query.trim()) {
-        request = request.or(
-          `first_name.ilike.%${query}%,last_name.ilike.%${query}%,company_name.ilike.%${query}%,phone.ilike.%${query}%`
-        );
-      }
+      request = applyClientSearch(request, query);
       const { data, error } = await request;
       if (error) throw error;
       const results = data ?? [];

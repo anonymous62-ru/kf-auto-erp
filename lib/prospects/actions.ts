@@ -26,6 +26,9 @@ export type ActivityType = 'relance' | 'appel' | 'whatsapp' | 'email' | 'visite'
 export type AppointmentStatus = 'planifie' | 'confirme' | 'realise' | 'annule' | 'absent';
 
 export interface CreateProspectInput {
+  companyName?: string;
+  contactName?: string;
+  sector?: string;
   firstName?: string;
   lastName?: string;
   phone?: string;
@@ -55,7 +58,7 @@ export async function createProspect(input: CreateProspectInput) {
   const supabase = await createClient();
   const { user, profile } = await getCurrentProfile(supabase);
 
-  if (!input.firstName?.trim() && !input.lastName?.trim() && !input.phone?.trim()) {
+  if (!input.companyName?.trim() && !input.firstName?.trim() && !input.lastName?.trim() && !input.phone?.trim()) {
     throw new Error('Renseignez au moins un nom ou un téléphone.');
   }
 
@@ -65,6 +68,9 @@ export async function createProspect(input: CreateProspectInput) {
       organization_id: profile.organization_id,
       assigned_to: user.id,
       created_by: user.id,
+      company_name: input.companyName || null,
+      contact_name: input.contactName || null,
+      sector: input.sector || null,
       first_name: input.firstName || null,
       last_name: input.lastName || null,
       phone: input.phone || null,
@@ -88,10 +94,10 @@ export async function getProspects(statusFilter?: ProspectStatus) {
   let request = supabase
     .from('prospects')
     .select(
-      'id, first_name, last_name, phone, status, source, vehicle_interest, next_relance_at, created_at'
+      'id, first_name, last_name, company_name, contact_name, sector, phone, status, source, vehicle_interest, next_relance_at, created_at'
     )
     .order('created_at', { ascending: false })
-    .limit(100);
+    .limit(500);
 
   if (statusFilter) request = request.eq('status', statusFilter);
 
@@ -105,7 +111,7 @@ export async function getProspect(id: string) {
   const { data, error } = await supabase
     .from('prospects')
     .select(
-      'id, first_name, last_name, phone, whatsapp, email, source, status, vehicle_interest_id, vehicle_interest, notes, next_relance_at, last_contact_at, client_id, products:vehicle_interest_id(designation)'
+      'id, first_name, last_name, company_name, contact_name, sector, phone, whatsapp, email, source, status, vehicle_interest_id, vehicle_interest, notes, next_relance_at, last_contact_at, client_id, products:vehicle_interest_id(designation)'
     )
     .eq('id', id)
     .single();
@@ -134,7 +140,13 @@ export async function updateProspect(input: UpdateProspectInput) {
       vehicle_interest_id: input.vehicleInterestId || null,
       vehicle_interest: input.vehicleInterest || null,
       notes: input.notes || null,
-      next_relance_at: input.nextRelanceAt || null,
+      // Champs mis à jour seulement s'ils sont fournis : le formulaire de
+      // modification n'envoie pas la date de relance, qui était jusqu'ici
+      // effacée à chaque modification de la fiche.
+      ...(input.nextRelanceAt !== undefined ? { next_relance_at: input.nextRelanceAt || null } : {}),
+      ...(input.companyName !== undefined ? { company_name: input.companyName || null } : {}),
+      ...(input.contactName !== undefined ? { contact_name: input.contactName || null } : {}),
+      ...(input.sector !== undefined ? { sector: input.sector || null } : {}),
       ...(input.status ? { status: input.status } : {}),
       updated_at: new Date().toISOString(),
     })
@@ -273,7 +285,7 @@ export async function convertProspectToClient(prospectId: string) {
 
   const { data: prospect, error: prospectError } = await supabase
     .from('prospects')
-    .select('id, first_name, last_name, phone, whatsapp, email, assigned_to, notes, client_id')
+    .select('id, first_name, last_name, company_name, contact_name, sector, phone, whatsapp, email, assigned_to, notes, client_id')
     .eq('id', prospectId)
     .single();
   if (prospectError) throw new Error(prospectError.message);
@@ -285,13 +297,17 @@ export async function convertProspectToClient(prospectId: string) {
       organization_id: profile.organization_id,
       assigned_to: prospect.assigned_to ?? user.id,
       created_by: user.id,
-      client_type: 'particulier',
+      // Prospect importé depuis un fichier d'entreprises (migration 0021) :
+      // on garde la raison sociale et la personne à contacter.
+      client_type: prospect.company_name ? 'entreprise' : 'particulier',
+      company_name: prospect.company_name,
+      main_contact_name: prospect.contact_name,
       first_name: prospect.first_name,
       last_name: prospect.last_name,
       phone: prospect.phone,
       whatsapp: prospect.whatsapp,
       email: prospect.email,
-      notes: prospect.notes,
+      notes: [prospect.sector ? `Secteur : ${prospect.sector}` : '', prospect.notes ?? ''].filter(Boolean).join('\n') || null,
     })
     .select('id')
     .single();

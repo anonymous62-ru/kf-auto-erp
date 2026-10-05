@@ -16,6 +16,7 @@ const METHODS: { value: PaymentMethod; label: string }[] = [
 
 export function PaymentForm({
   documentId,
+  publicToken,
   documentNumber,
   clientId,
   balanceDue,
@@ -23,6 +24,7 @@ export function PaymentForm({
   clientEmail,
 }: {
   documentId: string;
+  publicToken: string;
   documentNumber?: string | null;
   clientId: string;
   balanceDue: number;
@@ -32,6 +34,10 @@ export function PaymentForm({
   const [amount, setAmount] = useState(balanceDue);
   const [method, setMethod] = useState<PaymentMethod>('especes');
   const [reference, setReference] = useState('');
+  // Date du paiement : aujourd'hui par défaut, modifiable pour un paiement
+  // reçu un autre jour (saisi en retard).
+  const today = new Date().toISOString().slice(0, 10);
+  const [paymentDate, setPaymentDate] = useState(today);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -39,10 +45,15 @@ export function PaymentForm({
   const router = useRouter();
 
   function handleSubmit() {
+    if (isPending) return; // garde anti double-clic
     setError(null);
     startTransition(async () => {
       try {
-        await createPayment({ documentId, clientId, amount, paymentMethod: method, reference });
+        const result = await createPayment({ documentId, clientId, amount, paymentMethod: method, reference, paymentDate });
+        if (!result.ok) {
+          setError(result.error);
+          return;
+        }
         setOpen(false);
         setJustPaid({ amount, remaining: Math.max(balanceDue - amount, 0) });
       } catch (e) {
@@ -55,6 +66,7 @@ export function PaymentForm({
     return (
       <ReceiptSendActions
         documentId={documentId}
+        publicToken={publicToken}
         documentNumber={documentNumber ?? null}
         amountPaid={justPaid.amount}
         balanceDue={justPaid.remaining}
@@ -104,6 +116,16 @@ export function PaymentForm({
             </option>
           ))}
         </select>
+      </label>
+      <label className="text-xs text-gray-500 block">
+        Date du paiement
+        <input
+          type="date"
+          value={paymentDate}
+          max={today}
+          onChange={(e) => setPaymentDate(e.target.value)}
+          className="w-full border rounded-md px-2 py-1.5 text-sm mt-0.5"
+        />
       </label>
       <label className="text-xs text-gray-500 block">
         Référence (optionnel)
