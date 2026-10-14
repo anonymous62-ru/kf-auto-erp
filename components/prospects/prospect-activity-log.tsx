@@ -53,7 +53,7 @@ export function ProspectActivityLog({ prospectId, activities }: { prospectId: st
               key={t.value}
               type="button"
               onClick={() => setType(t.value)}
-              className={`text-xs px-2.5 py-1 rounded-full border ${
+              className={`text-xs px-2.5 py-1 rounded-md border ${
                 type === t.value ? 'bg-kf-navy text-white border-kf-navy' : 'text-gray-600 border-gray-200 bg-white'
               }`}
             >

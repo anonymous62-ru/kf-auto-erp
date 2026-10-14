@@ -33,7 +33,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
         <span className="text-gray-600">{part.designation}</span>
       </div>
       <div className="flex items-center justify-between gap-2">
-        <h1 className="text-lg font-medium">Pièce : {part.designation}</h1>
+        <h1 className="page-title">Pièce : {part.designation}</h1>
         {!isSuperAdmin && <PartAvailabilityBadge isActive={part.is_active} />}
       </div>
 
@@ -58,7 +58,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
             {history.map((h) => (
               <div key={h.id} className="flex justify-between border-b border-gray-100 pb-1.5 last:border-0">
                 <span className="text-gray-600">
-                  {h.movement_type} {h.reason ? `— ${h.reason}` : ''}
+                  {h.movement_type} {h.reason ? `· ${h.reason}` : ''}
                 </span>
                 <span className={Number(h.quantity) >= 0 ? 'text-green-600' : 'text-kf-red'}>
                   {Number(h.quantity) >= 0 ? '+' : ''}

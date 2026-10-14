@@ -174,22 +174,11 @@ async function doSync(): Promise<SyncResult> {
       let documentNumber = await findDocumentNumber(supabase, pd.serverId);
 
       if (documentNumber === undefined) {
-        // 2) Numero officiel : on reutilise celui deja reserve lors d'une
-        //    tentative precedente qui n'a pas abouti, sinon on en demande un
-        //    et on le memorise AVANT l'insertion. Ainsi une coupure entre la
-        //    numerotation et l'insertion ne consomme pas plusieurs numeros.
-        let number = pd.reservedDocumentNumber;
-        if (!number) {
-          const year = new Date().getFullYear();
-          const { data, error: numberError } = await supabase.rpc('get_next_document_number', {
-            p_organization_id: profile.organizationId,
-            p_document_type: pd.documentType,
-            p_year: year,
-          });
-          if (numberError) throw numberError;
-          number = data as string;
-          await db.pendingDocuments.update(pd.localId, { reservedDocumentNumber: number });
-        }
+        // 2) Numéro attribué par la base à l'insertion (migration 0037). Un
+        // numéro réservé par une ancienne version de l'application est
+        // conservé, sauf pour une facture (le compteur seul fait foi).
+        const number =
+          pd.documentType === 'facture' || pd.documentType === 'avoir' ? null : pd.reservedDocumentNumber ?? null;
 
         const { error: documentError } = await supabase.from('documents').insert({
           id: pd.serverId,
@@ -226,7 +215,8 @@ async function doSync(): Promise<SyncResult> {
           }
           documentNumber = existingNumber;
         } else {
-          documentNumber = number;
+          // Numéro donné par la base : on le relit.
+          documentNumber = (await findDocumentNumber(supabase, pd.serverId)) ?? number;
         }
       }
 

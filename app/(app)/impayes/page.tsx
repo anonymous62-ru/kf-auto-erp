@@ -1,7 +1,9 @@
+import Link from 'next/link';
 import { getUnpaidDocuments } from '@/lib/payments/actions';
 import { formatCFA } from '@/lib/documents/calculations';
 import { RelanceButton } from '@/components/payments/relance-button';
-import Link from 'next/link';
+import { PageHeader } from '@/components/ui/page-header';
+import { EmptyState } from '@/components/ui/empty-state';
 
 function daysLate(dueDate: string | null): number | null {
   if (!dueDate) return null;
@@ -11,47 +13,76 @@ function daysLate(dueDate: string | null): number | null {
 
 export default async function ImpayesPage() {
   const documents = await getUnpaidDocuments();
+  const total = documents.reduce((s, d) => s + Number(d.balance_due), 0);
+  const overdue = documents.filter((d) => (daysLate(d.due_date) ?? 0) > 0);
+  const rows = [...documents].sort((a, b) => (daysLate(b.due_date) ?? -9999) - (daysLate(a.due_date) ?? -9999));
 
   return (
-    <div className="space-y-3">
-      <h1 className="text-lg font-medium">Impayés</h1>
-      {documents.length === 0 && <p className="text-sm text-gray-500">Aucun impayé pour le moment.</p>}
-      {documents.map((doc) => {
-        const client = Array.isArray(doc.clients) ? doc.clients[0] : doc.clients;
-        const late = daysLate(doc.due_date);
-        const color = late === null ? 'text-gray-500' : late > 0 ? 'text-red-600' : late > -7 ? 'text-amber-600' : 'text-green-600';
-        return (
-          <Link
-            key={doc.id}
-            href={`/documents/${doc.id}`}
-            className="block bg-white rounded-lg border p-3 text-sm"
-          >
-            <div className="flex justify-between">
-              <p className="font-medium">{doc.document_number ?? doc.id.slice(0, 8)}</p>
-              <p className="font-medium text-red-600">{formatCFA(Number(doc.balance_due))}</p>
-            </div>
-            <p className="text-xs text-gray-500">
-              {client?.company_name || `${client?.first_name ?? ''} ${client?.last_name ?? ''}`}
-            </p>
-            <p className={`text-xs mt-1 ${color}`}>
-              {late === null
-                ? 'Pas d\'échéance définie'
-                : late > 0
-                ? `En retard de ${late} jour(s)`
-                : `Échéance dans ${Math.abs(late)} jour(s)`}
-            </p>
-            {late !== null && late > 0 && (
-              <RelanceButton
-                documentId={doc.id}
-                documentNumber={doc.document_number}
-                balanceDue={Number(doc.balance_due)}
-                clientPhone={client?.phone}
-                clientEmail={client?.email}
-              />
-            )}
-          </Link>
-        );
-      })}
+    <div>
+      <PageHeader
+        title="Impayés"
+        description={
+          documents.length
+            ? `${formatCFA(total)} restant dû sur ${documents.length} document${documents.length > 1 ? 's' : ''}, dont ${overdue.length} en retard`
+            : 'Factures émises avec un solde restant dû'
+        }
+      />
+      <div className="table-wrap">
+        {rows.length === 0 ? (
+          <EmptyState title="Aucun impayé" description="Toutes les factures émises sont soldées." />
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Document</th>
+                <th className="hidden md:table-cell">Client</th>
+                <th>Échéance</th>
+                <th className="num">Reste dû</th>
+                <th className="hidden sm:table-cell" />
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((doc) => {
+                const client = Array.isArray(doc.clients) ? doc.clients[0] : doc.clients;
+                const name = client?.company_name || `${client?.first_name ?? ''} ${client?.last_name ?? ''}`.trim();
+                const late = daysLate(doc.due_date);
+                return (
+                  <tr key={doc.id}>
+                    <td>
+                      <Link href={`/documents/${doc.id}`} className="font-medium hover:text-kf-navy">
+                        {doc.document_number ?? doc.id.slice(0, 8)}
+                      </Link>
+                      <span className="block text-xs text-gray-500 md:hidden">{name}</span>
+                    </td>
+                    <td className="hidden text-gray-700 md:table-cell">{name}</td>
+                    <td className="whitespace-nowrap">
+                      {late === null ? (
+                        <span className="text-gray-500">Non définie</span>
+                      ) : late > 0 ? (
+                        <span className="badge-red">En retard de {late} j</span>
+                      ) : (
+                        <span className="text-gray-600">Dans {Math.abs(late)} j</span>
+                      )}
+                    </td>
+                    <td className="num whitespace-nowrap font-medium">{formatCFA(Number(doc.balance_due))}</td>
+                    <td className="hidden text-right sm:table-cell">
+                      {late !== null && late > 0 && (
+                        <RelanceButton
+                          documentId={doc.id}
+                          documentNumber={doc.document_number}
+                          balanceDue={Number(doc.balance_due)}
+                          clientPhone={client?.phone}
+                          clientEmail={client?.email}
+                        />
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   );
 }

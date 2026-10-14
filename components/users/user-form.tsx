@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { createUser } from '@/lib/users/actions';
-import { roleLabel, ALL_ROLES, type UserRole } from '@/lib/users/roles';
+import { roleLabel, ALL_ROLES, DEPARTMENTS, type UserRole } from '@/lib/users/roles';
 import { IconCheck } from '@/components/icons';
 
 function generatePassword() {
@@ -18,6 +18,7 @@ export function UserForm({ canCreateAdmins }: { canCreateAdmins: boolean }) {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [role, setRole] = useState<UserRole>('commercial');
+  const [department, setDepartment] = useState('');
   const [password, setPassword] = useState(generatePassword());
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState(false);
@@ -33,7 +34,7 @@ export function UserForm({ canCreateAdmins }: { canCreateAdmins: boolean }) {
     }
     startTransition(async () => {
       try {
-        await createUser({ fullName, email, phone: phone || undefined, role, password });
+        await createUser({ fullName, email, phone: phone || undefined, role, password, department: department || null });
         setCreated(true);
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Erreur lors de la création');
@@ -93,6 +94,23 @@ export function UserForm({ canCreateAdmins }: { canCreateAdmins: boolean }) {
             ))}
           </select>
         </label>
+        {role === 'chef_service' && (
+          <label className="block text-xs text-gray-500">
+            Département dirigé
+            <select
+              value={department}
+              onChange={(e) => setDepartment(e.target.value)}
+              className="w-full border rounded-md px-2 py-1.5 text-sm mt-0.5"
+            >
+              <option value="">Choisir...</option>
+              {DEPARTMENTS.map((d) => (
+                <option key={d.value} value={d.value}>
+                  {d.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <label className="block text-xs text-gray-500">
           Mot de passe temporaire
           <div className="flex gap-2 mt-0.5">

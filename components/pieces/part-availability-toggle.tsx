@@ -57,7 +57,7 @@ export function PartAvailabilityToggle({ partId, isActive }: { partId: string; i
 export function PartAvailabilityBadge({ isActive }: { isActive: boolean }) {
   return (
     <span
-      className={`text-xs px-2 py-0.5 rounded-full ${
+      className={`text-xs px-2 py-0.5 rounded-md ${
         isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
       }`}
     >

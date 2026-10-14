@@ -36,12 +36,12 @@ export default async function RepairOrderDetailPage({ params }: { params: Promis
 
       <div className="card p-4 space-y-1">
         <div className="flex items-center justify-between">
-          <h1 className="text-lg font-medium">{order.order_number}</h1>
+          <h1 className="page-title">{order.order_number}</h1>
           <span className="badge badge-navy">{STATUS_LABELS[order.status] ?? order.status}</span>
         </div>
         <p className="text-sm text-gray-600">{clientName || 'Aucun client associé'}</p>
         <p className="text-xs text-gray-500">
-          {order.vehicle_label || 'Véhicule non précisé'} {order.vehicle_plate && `— ${order.vehicle_plate}`} {order.vehicle_vin && `— VIN ${order.vehicle_vin}`}
+          {order.vehicle_label || 'Véhicule non précisé'} {order.vehicle_plate && `· ${order.vehicle_plate}`} {order.vehicle_vin && `· VIN ${order.vehicle_vin}`}
         </p>
         <p className="text-xs text-gray-500">
           Ouvert le {new Date(order.opened_at).toLocaleDateString('fr-FR')}

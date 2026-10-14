@@ -151,7 +151,7 @@ export async function buildContractPdf({ contract, organization, client, product
 
   text('CONTRAT DE VENTE DE VÉHICULE', MARGIN, y, { size: 15, bold: true, color: NAVY });
   y -= 16;
-  text(`N° ${t(contract.contract_number) || '(en attente)'} — Fait le ${new Date(contract.created_at).toLocaleDateString('fr-FR')}`, MARGIN, y, { size: 9, color: GRAY });
+  text(`N° ${t(contract.contract_number) || '(en attente)'}, fait le ${new Date(contract.created_at).toLocaleDateString('fr-FR')}`, MARGIN, y, { size: 9, color: GRAY });
   y -= 26;
 
   // Parties

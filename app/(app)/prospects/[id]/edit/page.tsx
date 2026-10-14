@@ -23,7 +23,7 @@ export default async function EditProspectPage({ params }: { params: Promise<{ i
 
   return (
     <div className="space-y-4">
-      <h1 className="text-lg font-medium">Modifier le prospect</h1>
+      <h1 className="page-title">Modifier le lead</h1>
       <ProspectEditForm prospect={prospect} vehicles={vehicles ?? []} />
     </div>
   );

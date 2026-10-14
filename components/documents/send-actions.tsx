@@ -72,12 +72,12 @@ export function SendActions({
 
   return (
     <div className="card p-4 space-y-2">
-      <p className="field-label uppercase tracking-wide">Envoyer au client</p>
+      <p className="field-label">Envoyer au client</p>
       <div className="flex gap-2">
         <button
           onClick={handleWhatsApp}
           disabled={busy}
-          className="flex-1 rounded-xl bg-green-600 text-white text-sm font-medium py-2.5 shadow-sm transition-colors hover:bg-green-700 disabled:opacity-60"
+          className="btn-primary flex-1"
         >
           WhatsApp
         </button>

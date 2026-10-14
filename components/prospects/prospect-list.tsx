@@ -28,13 +28,13 @@ const STATUS_LABELS: Record<ProspectStatus, string> = {
 };
 
 const STATUS_COLORS: Record<ProspectStatus, string> = {
-  nouveau: 'bg-gray-100 text-gray-600',
-  contacte: 'bg-blue-100 text-blue-700',
-  interesse: 'bg-amber-100 text-amber-700',
-  rdv_planifie: 'bg-purple-100 text-purple-700',
-  negociation: 'bg-orange-100 text-orange-700',
-  converti: 'bg-green-100 text-green-700',
-  perdu: 'bg-red-100 text-red-500',
+  nouveau: 'badge-gray',
+  contacte: 'badge-blue',
+  interesse: 'badge-amber',
+  rdv_planifie: 'badge-indigo',
+  negociation: 'badge-orange',
+  converti: 'badge-green',
+  perdu: 'badge-red',
 };
 
 const TABS: { value: ProspectStatus | 'all'; label: string }[] = [
@@ -52,7 +52,7 @@ function isOverdue(nextRelanceAt?: string | null) {
   return !!nextRelanceAt && new Date(nextRelanceAt) < new Date();
 }
 
-export function ProspectList({ initialProspects }: { initialProspects: ProspectRow[] }) {
+export function ProspectList({ initialProspects, assignedTo }: { initialProspects: ProspectRow[]; assignedTo?: string }) {
   const [tab, setTab] = useState<ProspectStatus | 'all'>('all');
   const [prospects, setProspects] = useState(initialProspects);
   const [isPending, startTransition] = useTransition();
@@ -60,7 +60,7 @@ export function ProspectList({ initialProspects }: { initialProspects: ProspectR
   function handleTab(value: ProspectStatus | 'all') {
     setTab(value);
     startTransition(async () => {
-      setProspects(await getProspects(value === 'all' ? undefined : value));
+      setProspects(await getProspects(value === 'all' ? undefined : value, assignedTo));
     });
   }
 
@@ -71,9 +71,7 @@ export function ProspectList({ initialProspects }: { initialProspects: ProspectR
           <button
             key={t.value}
             onClick={() => handleTab(t.value)}
-            className={`text-xs px-2.5 py-1.5 rounded-full whitespace-nowrap border ${
-              tab === t.value ? 'bg-kf-navy text-white border-kf-navy' : 'text-gray-600 border-gray-200'
-            }`}
+            className={`chip ${tab === t.value ? 'chip-active' : ''}`}
           >
             {t.label}
           </button>
@@ -82,12 +80,18 @@ export function ProspectList({ initialProspects }: { initialProspects: ProspectR
 
       {isPending && <p className="text-xs text-gray-400">Chargement...</p>}
       {!isPending && prospects.length === 0 && (
-        <p className="text-sm text-gray-400 text-center py-6">Aucun prospect dans cette catégorie.</p>
+        <div className="card px-4 py-10 text-center">
+          <p className="text-sm font-medium">Aucun lead dans cette catégorie</p>
+          <p className="mt-1 text-[13px] text-gray-500">Ajoutez un lead ou importez votre fichier de contacts.</p>
+          <Link href="/prospects/new" className="btn-primary mt-4">
+            Nouveau lead
+          </Link>
+        </div>
       )}
 
-      <div className="space-y-2">
+      <div className={prospects.length ? 'table-wrap divide-y divide-gray-100' : 'hidden'}>
         {prospects.map((p) => (
-          <Link key={p.id} href={`/prospects/${p.id}`} className="block bg-white rounded-lg border p-3 text-sm hover:bg-gray-50">
+          <Link key={p.id} href={`/prospects/${p.id}`} className="block px-3 py-3 text-sm hover:bg-gray-50">
             <div className="flex items-start justify-between gap-2">
               <div>
                 <p className="font-medium">
@@ -101,7 +105,7 @@ export function ProspectList({ initialProspects }: { initialProspects: ProspectR
                   <p className="text-xs text-kf-red mt-0.5">Relance en retard</p>
                 )}
               </div>
-              <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${STATUS_COLORS[p.status]}`}>
+              <span className={`shrink-0 ${STATUS_COLORS[p.status]}`}>
                 {STATUS_LABELS[p.status]}
               </span>
             </div>

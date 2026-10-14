@@ -35,7 +35,7 @@ export default async function AtelierPage() {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-medium">Atelier / SAV</h1>
+        <h1 className="page-title">Atelier / SAV</h1>
         <div className="flex gap-2">
           {can(role, 'appointmentWrite') && (
             <Link href="/atelier/rendez-vous/new" className="btn-secondary text-sm px-3 py-1.5">
@@ -78,7 +78,7 @@ export default async function AtelierPage() {
           <Link key={o.id} href={`/atelier/${o.id}`} className="card card-hover p-3 text-sm flex justify-between items-center gap-3">
             <div className="min-w-0">
               <p className="font-medium truncate">
-                {o.order_number} — {clientName(o.clients)}
+                {o.order_number} · {clientName(o.clients)}
               </p>
               <p className="text-xs text-gray-500">{o.vehicle_label || o.vehicle_plate || 'Véhicule non précisé'}</p>
             </div>

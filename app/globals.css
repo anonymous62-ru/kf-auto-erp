@@ -1,97 +1,202 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Système visuel « cockpit » (maquette du 13/10/2026).
+ * Papier #F5F6F8, encre #0F1826, bleu nuit #0D1B2E pour la navigation et les
+ * actions principales, rouge KF Auto #D7262E réservé aux accents (logo, appel
+ * à l'action principal, alertes). Pas de dégradé, pas de libellé en
+ * majuscules, chiffres tabulaires pour les montants. Une seule animation :
+ * le repère du compte-tours au chargement.
+ */
 @layer base {
   html {
     font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-    font-feature-settings: 'cv11', 'ss01';
     -webkit-tap-highlight-color: transparent;
   }
   body {
-    background-color: #f4f5f7;
-    color: #111827;
+    background-color: #f5f6f8;
+    color: #0f1826;
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible {
+    outline: 2px solid #2357a6;
+    outline-offset: 2px;
   }
   ::selection {
-    background-color: #f7941d40;
-  }
-  ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-  }
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  ::-webkit-scrollbar-thumb {
-    background-color: #1b2a4a26;
-    border-radius: 8px;
+    background-color: #0d1b2e26;
   }
 }
 
 @layer components {
-  /* ---------- Boutons ---------- */
-  .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-kf-navy text-white font-medium text-sm py-2.5 px-4
-      shadow-sm transition-colors duration-150
-      hover:bg-kf-navy-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kf-orange/50 focus-visible:ring-offset-2
-      disabled:opacity-60 disabled:pointer-events-none;
+  /* ---------- Titres ---------- */
+  .page-title {
+    @apply font-display text-[26px] leading-8 font-bold tracking-[-0.02em] text-encre;
   }
-  .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white text-gray-800 font-medium text-sm py-2.5 px-4
-      shadow-sm transition-colors duration-150
-      hover:bg-gray-50 hover:border-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kf-navy/30 focus-visible:ring-offset-2
-      disabled:opacity-60 disabled:pointer-events-none;
+  .page-subtitle {
+    @apply mt-1 text-[13px] text-encre-3;
   }
-  .btn-danger-ghost {
-    @apply inline-flex items-center justify-center gap-1 rounded-md text-red-600 text-xs font-medium px-2 py-1
-      transition-colors hover:bg-red-50;
-  }
-  .btn-link {
-    @apply text-xs font-medium text-kf-navy underline decoration-kf-navy/30 underline-offset-2 hover:decoration-kf-navy;
+  .section-title {
+    @apply font-display text-[17px] font-bold tracking-[-0.01em] text-encre;
   }
 
-  /* ---------- Cartes ---------- */
+  /* ---------- Boutons (38 px, coins 7 px, jamais en pilule) ---------- */
+  .btn {
+    @apply inline-flex items-center justify-center gap-[7px] h-[38px] px-[15px] rounded-[7px] text-[13.5px] font-medium whitespace-nowrap
+      border transition-colors duration-100 disabled:opacity-50 disabled:pointer-events-none;
+  }
+  .btn-primary {
+    @apply btn border-nuit bg-nuit text-white hover:bg-nuit-3 hover:border-nuit-3;
+  }
+  .btn-accent {
+    @apply btn border-rouge bg-rouge text-white hover:bg-[#bf1f27] hover:border-[#bf1f27];
+  }
+  .btn-secondary {
+    @apply btn border-trait bg-white text-encre hover:bg-papier;
+  }
+  .btn-ghost {
+    @apply btn border-transparent text-encre-2 hover:bg-papier hover:text-encre;
+  }
+  .btn-danger {
+    @apply btn border-[#F3C2C4] bg-white text-rouge hover:bg-rouge-clair;
+  }
+  .btn-sm {
+    @apply h-8 px-2.5 text-[13px];
+  }
+  .btn-danger-ghost {
+    @apply inline-flex items-center justify-center gap-1 rounded-md text-rouge text-xs font-medium px-2 py-1 hover:bg-rouge-clair;
+  }
+  .btn-link {
+    @apply text-[13px] font-medium text-[#2357A6] hover:underline underline-offset-2;
+  }
+
+  /* ---------- Panneaux ---------- */
   .card {
-    @apply bg-white rounded-xl border border-gray-200/80 shadow-[0_1px_2px_rgba(16,24,40,0.04)];
+    @apply bg-white rounded-[10px] border border-trait;
   }
   .card-hover {
-    @apply transition-colors duration-150 hover:border-gray-300 hover:bg-gray-50/60;
+    @apply transition-colors duration-100 hover:bg-[#FAFBFC];
   }
   .card-header {
-    @apply flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-100;
+    @apply flex items-center justify-between gap-3 px-4 pt-4 pb-1;
   }
   .card-title {
-    @apply text-sm font-semibold text-gray-900;
+    @apply font-display text-[17px] font-bold tracking-[-0.01em] text-encre;
   }
 
   /* ---------- Champs ---------- */
   .field-label {
-    @apply text-xs font-medium text-gray-600;
+    @apply mb-1 block text-xs font-medium text-encre-2;
   }
   .input {
-    @apply w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 placeholder:text-gray-400
-      transition-shadow duration-150
-      focus:outline-none focus:ring-2 focus:ring-kf-navy/15 focus:border-kf-navy/60;
+    @apply w-full border border-trait rounded-[7px] px-3 py-2 text-sm bg-white text-encre placeholder:text-encre-3
+      focus:outline-none focus:ring-2 focus:ring-[#2357A6]/20 focus:border-[#2357A6]/60;
   }
 
-  /* ---------- Badges de statut ---------- */
+  /* ---------- Tableaux ---------- */
+  .table-wrap {
+    @apply card overflow-hidden;
+  }
+  .data-table {
+    @apply w-full text-sm border-collapse;
+  }
+  .data-table thead th {
+    @apply px-4 py-[11px] text-left text-xs font-medium text-encre-3 border-b border-trait whitespace-nowrap bg-white;
+  }
+  .data-table tbody td {
+    @apply px-4 py-3 border-t border-trait-2 align-middle;
+  }
+  .data-table tbody tr:first-child td {
+    @apply border-t-0;
+  }
+  .data-table tbody tr {
+    @apply transition-colors duration-75 hover:bg-[#FAFBFC];
+  }
+  .data-table td.num,
+  .data-table th.num {
+    @apply text-right;
+  }
+
+  /* ---------- Onglets ---------- */
+  .tabs {
+    @apply flex gap-1 overflow-x-auto border-b border-trait;
+  }
+  .tab {
+    @apply -mb-px whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-sm font-medium text-encre-3 hover:text-encre;
+  }
+  .tab-active {
+    @apply border-nuit text-encre;
+  }
+
+  /* ---------- Filtres ---------- */
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-md border border-trait bg-white px-2.5 py-1 text-[12.5px] text-encre-2 hover:bg-papier whitespace-nowrap;
+  }
+  .chip-active {
+    @apply border-encre bg-encre text-white hover:bg-encre;
+  }
+
+  /* ---------- Badges de statut (fond clair, texte foncé) ---------- */
   .badge {
-    @apply inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium ring-1 ring-inset;
+    @apply inline-flex items-center gap-1 rounded-[5px] px-2 py-0.5 text-xs font-semibold leading-[18px] whitespace-nowrap;
   }
-  .badge-navy { @apply badge bg-kf-navy/5 text-kf-navy ring-kf-navy/15; }
-  .badge-red { @apply badge bg-red-50 text-red-700 ring-red-600/15; }
-  .badge-orange { @apply badge bg-orange-50 text-orange-700 ring-orange-600/20; }
-  .badge-green { @apply badge bg-emerald-50 text-emerald-700 ring-emerald-600/20; }
-  .badge-gray { @apply badge bg-gray-50 text-gray-600 ring-gray-500/15; }
+  .badge-gray { @apply badge bg-trait-2 text-encre-2; }
+  .badge-navy { @apply badge bg-[#E6EBF3] text-nuit; }
+  .badge-blue { @apply badge bg-[#E6EEF9] text-[#2357A6]; }
+  .badge-sky { @apply badge bg-[#E6EEF9] text-[#2357A6]; }
+  .badge-indigo { @apply badge bg-[#E6EEF9] text-[#2357A6]; }
+  .badge-violet { @apply badge bg-[#EFEAFB] text-[#5B43B3]; }
+  .badge-green { @apply badge bg-[#E3F3EA] text-[#12804F]; }
+  .badge-amber { @apply badge bg-[#FBF0DC] text-[#A6620A]; }
+  .badge-orange { @apply badge bg-[#FBF0DC] text-[#A6620A]; }
+  .badge-red { @apply badge bg-rouge-clair text-rouge; }
 
-  /* Chiffres alignés dans les tableaux et indicateurs */
+  /* Chiffres alignés */
   .num {
     font-variant-numeric: tabular-nums;
   }
 
-  /* Bande tricolore signature (reprend celle des documents PDF/DOCX) */
+  /* Squelettes de chargement */
+  .skeleton {
+    @apply rounded bg-trait-2 animate-pulse;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .skeleton {
+      animation: none;
+    }
+  }
+
+  /* Barre du haut : variantes claire et sombre (tableau de bord) */
+  .tb-muted {
+    @apply text-encre-3;
+  }
+  [data-tone='dark'] .tb-muted {
+    @apply text-acier;
+  }
+  .tb-icon {
+    @apply relative grid h-[34px] w-[34px] place-items-center rounded-[7px] border border-trait text-encre-2 hover:bg-papier;
+  }
+  [data-tone='dark'] .tb-icon {
+    @apply border-nuit-3 text-[#C9D4E3] hover:bg-nuit-2;
+  }
+  .tb-search {
+    @apply flex h-9 w-full max-w-[440px] items-center gap-2 rounded-[7px] border border-trait bg-papier px-3 text-[13px] text-encre;
+  }
+  [data-tone='dark'] .tb-search {
+    @apply border-nuit-3 bg-nuit-2 text-white;
+  }
+  .tb-search input {
+    @apply min-w-0 flex-1 bg-transparent outline-none placeholder:text-encre-3;
+  }
+  [data-tone='dark'] .tb-search input {
+    @apply placeholder:text-acier;
+  }
+
+  /* Bande tricolore signature (documents PDF, connexion) */
   .brand-stripe {
     @apply h-1 w-full flex overflow-hidden;
   }
@@ -99,4 +204,17 @@
   .brand-stripe > span:nth-child(2) { @apply bg-kf-orange flex-[1]; }
   .brand-stripe > span:nth-child(3) { @apply bg-kf-navy-400 flex-[3]; }
   .brand-stripe > span:nth-child(4) { @apply bg-black flex-[1]; }
+}
+
+/* Compte-tours : le repère glisse jusqu'à sa position au chargement. */
+@media (prefers-reduced-motion: no-preference) {
+  .gauge-needle {
+    transform-origin: 150px 138px;
+    animation: gauge-sweep 1.1s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  @keyframes gauge-sweep {
+    from {
+      transform: rotate(var(--gauge-from, -120deg));
+    }
+  }
 }

@@ -41,7 +41,7 @@ export function NewRepairOrderForm({ clients }: { clients: { id: string; label: 
       <label className="text-xs text-gray-500 block">
         Client (optionnel)
         <select value={clientId} onChange={(e) => setClientId(e.target.value)} className="w-full border rounded-md px-2 py-1.5 text-sm mt-0.5">
-          <option value="">— Aucun client sélectionné —</option>
+          <option value="">Aucun client sélectionné</option>
           {clients.map((c) => (
             <option key={c.id} value={c.id}>
               {c.label}

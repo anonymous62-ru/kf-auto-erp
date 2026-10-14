@@ -36,12 +36,12 @@ export default async function ContractDetailPage({ params }: { params: Promise<{
     <div className="space-y-4">
       <div className="card p-4">
         <p className="text-xs text-gray-500">Contrat de vente</p>
-        <h1 className="text-lg font-medium">{contract.contract_number ?? '(en attente)'}</h1>
+        <h1 className="page-title">{contract.contract_number ?? '(en attente)'}</h1>
         <p className="text-sm text-gray-600 mt-1">{clientName}</p>
         <p className="text-xs text-gray-400">{vehicleLabel}</p>
         <p className="text-xs text-gray-400 mt-1">
           Statut : {STATUS_LABELS[contract.status] ?? contract.status}
-          {commercial?.full_name ? ` — Vendeur : ${commercial.full_name}` : ''}
+          {commercial?.full_name ? ` · Vendeur : ${commercial.full_name}` : ''}
         </p>
       </div>
 

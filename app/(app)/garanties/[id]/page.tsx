@@ -22,7 +22,7 @@ export default async function WarrantyDetailPage({ params }: { params: Promise<{
 
       <div className="card p-4 space-y-1">
         <div className="flex items-center justify-between">
-          <h1 className="text-lg font-medium">
+          <h1 className="page-title">
             {[warranty.brand, warranty.model].filter(Boolean).join(' ') || 'Véhicule'}
           </h1>
           <span className={`badge ${expired ? 'badge-gray' : 'badge-green'}`}>{expired ? 'Expirée' : 'Active'}</span>
@@ -30,7 +30,7 @@ export default async function WarrantyDetailPage({ params }: { params: Promise<{
         <p className="text-sm text-gray-600">{clientName || 'Aucun client associé'}</p>
         <p className="text-xs text-gray-500">VIN : {warranty.vehicle_vin}</p>
         <p className="text-xs text-gray-500">
-          Du {new Date(warranty.start_date).toLocaleDateString('fr-FR')} au {endDate.toLocaleDateString('fr-FR')} — jusqu'à{' '}
+          Du {new Date(warranty.start_date).toLocaleDateString('fr-FR')} au {endDate.toLocaleDateString('fr-FR')}, jusqu'à{' '}
           {Number(warranty.mileage_limit).toLocaleString('fr-FR')} km
         </p>
         {warranty.covered_parts && <p className="text-xs text-gray-500 pt-1">Couverture : {warranty.covered_parts}</p>}

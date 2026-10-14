@@ -32,7 +32,11 @@ Coche au fur et à mesure. Pour chaque ✗, note l'écran, ce que tu as fait, et
 - [ ] Enregistrer le devis, vérifier qu'il apparaît dans la liste avec un numéro officiel
 - [ ] Faire signer (signature tactile client + commercial) sur l'écran prévu à cet effet
 - [ ] Télécharger le **PDF** : logo, couleurs, tableau, conditions générales, signatures, pied de page (RCCM/NIF/CNSS) tous corrects
-- [ ] Télécharger le **Word (.docx)** : s'ouvre correctement dans Word/LibreOffice, contenu identique au PDF
+- [ ] Plus aucun export Word : seul le PDF est proposé (une facture ne doit jamais circuler en format modifiable)
+- [ ] Proforma : le commercial modifie librement prix et caractéristiques, avant et après envoi
+- [ ] Facture sans paiement : l'administration des ventes la modifie (un commercial, non)
+- [ ] Après le premier paiement : bouton Modifier absent, toute modification refusée ; « Créer un avoir » visible pour l'administration des ventes et la direction seulement
+- [ ] Avoir total : la facture passe Annulée, la commande redevient À facturer, le QR code de la facture affiche « Annulé, sans valeur »
 - [ ] Envoyer le document par **WhatsApp** (le lien s'ouvre avec le bon message pré-rempli)
 - [ ] Envoyer par **Email** (mailto s'ouvre avec le bon message)
 - [ ] Convertir le devis en **facture** : nouveau numéro de facture généré, devis marqué "accepté"
@@ -61,6 +65,37 @@ Coche au fur et à mesure. Pour chaque ✗, note l'écran, ce que tu as fait, et
 
 - [ ] Ajouter un produit/service avec un seuil de stock minimum
 - [ ] Faire descendre le stock sous ce seuil (via une vente ou modification manuelle) : notification "stock bas" reçue
+
+## 6 bis. Catalogues
+
+- [ ] Fiche d'un modèle (compte administration ou marketing) : ajouter des photos, en choisir la principale, les réordonner (glisser ou flèches), changer leur type
+- [ ] « Importer les photos officielles » : coller l'adresse de la page du modèle sur cheryauto.tg ou kfauto.tg, cocher, importer
+- [ ] Remplir accroche, points forts, équipements, couleurs ; « Aperçu de la fiche modèle (PDF) » : 2 pages, bandes et pied de page KF Auto
+- [ ] Compte commercial : photos et textes en lecture seule, bouton « Envoyer un catalogue » présent
+- [ ] Depuis un lead : envoyer 3 modèles avec prix par WhatsApp ; le lien s'ouvre sur téléphone sans compte, le PDF a couverture, sommaire, une page par modèle, page contacts
+- [ ] Ouvrir le lien : le commercial reçoit la notification « Catalogue consulté », l'historique du lead indique « Ouvert »
+- [ ] Rapports : bloc « Catalogues envoyés » ; Campagnes : colonne « Catalogues (ouverts) »
+
+## 6 ter. Nouvelle présentation (à vérifier sur ordinateur et sur téléphone)
+
+- [ ] Documents : filtres en haut (numéro, type, statut, commercial, période), tri par colonne, pagination de 25 lignes
+- [ ] Fiche document : actions en haut à droite, onglets Infos, Documents, Paiements, Historique, résumé à droite
+- [ ] Fiche client : chiffres clés, onglets Infos, Documents, Paiements, Historique
+- [ ] Catalogue véhicules et Stock véhicules : bascule Grille / Liste
+- [ ] Affaires : glisser une carte de Froide vers Chaude, puis vers Perdue (raison demandée) ; sur téléphone, menu « Déplacer »
+- [ ] Badges identiques partout : Brouillon, Envoyé, Commande, Facturé, Payé, En retard, Avoir
+
+## 6 quater. Tableau de bord « cockpit » (migration 0041, déjà appliquée)
+
+- [ ] Organisation (compte direction ou manager) : saisir l'**Objectif mensuel** en FCFA, enregistrer. Un commercial ne voit pas ce réglage.
+- [ ] Tableau de bord : le bandeau bleu nuit affiche la date, « Bonjour Prénom » et une phrase calculée (pourcentage de l'objectif, jours ouvrés restants du lundi au vendredi, commandes à facturer).
+- [ ] Le compte-tours indique le facturé du mois (factures non annulées, moins les avoirs) sur l'objectif ; sans objectif, il affiche « Objectif non fixé » et un bouton « Fixer l'objectif » pour la direction.
+- [ ] Encaissé du mois : la variation compare au même nombre de jours du mois précédent. Reste à encaisser passe en rouge s'il y a des factures en retard.
+- [ ] Le parc : une carte par véhicule non vendu, du plus ancien au plus récent ; carte bordée de rouge au-delà de 90 jours ; filtres par statut ; défilement horizontal sur téléphone.
+- [ ] Ventes en cours : barre proforma, commande, facture, payé ; l'étape en retard est en rouge.
+- [ ] Barre de recherche du haut : un nom de client, un numéro de facture (FAC-2026-...) ou la fin d'un numéro de châssis ouvre la page Recherche.
+- [ ] Réglage « réduire les animations » du téléphone ou de l'ordinateur activé : le repère rouge du compte-tours ne bouge plus au chargement.
+- [ ] Silhouette pick-up : si un modèle pick-up apparaît en SUV, corriger `products.body_type` à `pickup`.
 
 ## 7. Utilisateurs & rôles (compte Super Admin/Administrateur uniquement)
 

@@ -146,7 +146,7 @@ export function ProspectEditForm({
             onChange={(e) => update('vehicleInterestId', e.target.value)}
             className="w-full border rounded-md px-2 py-1.5 text-sm mt-0.5"
           >
-            <option value="">— aucun / pas encore précisé —</option>
+            <option value="">Aucun, pas encore précisé</option>
             {vehicles.map((v) => (
               <option key={v.id} value={v.id}>
                 {v.designation}

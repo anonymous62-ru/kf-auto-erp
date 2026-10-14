@@ -263,7 +263,7 @@ export function RecentDocuments({
             </thead>
             <tbody className="divide-y divide-gray-100">
               {documents.map((d) => {
-                const status = documentStatus(d.status);
+                const status = documentStatus(d.status, d.type);
                 return (
                   <tr key={d.id} className="group">
                     <td className="px-5 py-3">
@@ -291,7 +291,7 @@ export function RecentDocuments({
           {/* Liste (téléphone) */}
           <ul className="md:hidden divide-y divide-gray-100">
             {documents.map((d) => {
-              const status = documentStatus(d.status);
+              const status = documentStatus(d.status, d.type);
               return (
                 <li key={d.id}>
                   <Link href={`/documents/${d.id}`} className="flex items-start justify-between gap-3 px-4 py-3 hover:bg-gray-50">

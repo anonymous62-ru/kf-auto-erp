@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { EmptyState } from '@/components/ui/empty-state';
 import { getSaleContracts } from '@/lib/contracts/actions';
 import { formatCFA } from '@/lib/documents/calculations';
 
@@ -20,14 +21,20 @@ export default async function ContractsPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-medium">Contrats de vente</h1>
-        <Link href="/contracts/new" className="text-sm bg-kf-navy text-white rounded-md px-3 py-1.5">
-          + Nouveau
+        <h1 className="page-title">Contrats de vente</h1>
+        <Link href="/contracts/new" className="btn-primary">
+          Nouveau
         </Link>
       </div>
 
       {contracts.length === 0 ? (
-        <p className="text-sm text-gray-400">Aucun contrat pour l'instant.</p>
+        <div className="card">
+          <EmptyState
+            title="Aucun contrat de vente"
+            description="Le contrat se prépare à partir d'un véhicule du catalogue et d'un client, puis se signe sur la tablette."
+            action={{ href: '/contracts/new', label: 'Préparer un contrat' }}
+          />
+        </div>
       ) : (
         <div className="space-y-2">
           {contracts.map((c) => {
@@ -39,10 +46,10 @@ export default async function ContractsPage() {
               <Link key={c.id} href={`/contracts/${c.id}`} className="card p-3 flex items-center justify-between block">
                 <div>
                   <p className="text-sm font-medium">{c.contract_number ?? '(en attente)'}</p>
-                  <p className="text-xs text-gray-500">{clientName} — {vehicleLabel}</p>
+                  <p className="text-xs text-gray-500">{clientName} · {vehicleLabel}</p>
                   <p className="text-xs text-gray-400">{formatCFA(Number(c.sale_price))}</p>
                 </div>
-                <span className={`text-xs px-2 py-1 rounded-full ${STATUS_CLASSES[c.status] ?? ''}`}>
+                <span className={`text-xs px-2 py-1 rounded-md ${STATUS_CLASSES[c.status] ?? ''}`}>
                   {STATUS_LABELS[c.status] ?? c.status}
                 </span>
               </Link>

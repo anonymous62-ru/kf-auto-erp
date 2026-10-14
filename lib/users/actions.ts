@@ -2,7 +2,15 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import type { UserRole } from '@/lib/users/roles';
+import { DEPARTMENTS, type UserRole } from '@/lib/users/roles';
+
+function checkDepartment(role: UserRole, department?: string | null) {
+  if (role !== 'chef_service') return null;
+  if (!department || !DEPARTMENTS.some((d) => d.value === department)) {
+    throw new Error('Choisissez le département dirigé par ce chef de service.');
+  }
+  return department;
+}
 
 // Verifie que l'utilisateur courant a le droit de gerer les comptes,
 // et renvoie son profil (utile pour recuperer organization_id).
@@ -29,7 +37,7 @@ export async function listUsers() {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, full_name, email, phone, role, is_active, created_at')
+    .select('id, full_name, email, phone, role, department, is_active, created_at')
     .eq('organization_id', profile.organization_id)
     .order('created_at', { ascending: false });
   if (error) throw new Error(error.message);
@@ -42,6 +50,7 @@ export interface CreateUserInput {
   phone?: string;
   role: UserRole;
   password: string;
+  department?: string | null;
 }
 
 export async function createUser(input: CreateUserInput) {
@@ -51,6 +60,7 @@ export async function createUser(input: CreateUserInput) {
   if (['super_admin', 'administrateur'].includes(input.role) && profile.role !== 'super_admin') {
     throw new Error('Seul un Super Admin peut créer un compte Administrateur ou Super Admin.');
   }
+  const department = checkDepartment(input.role, input.department);
 
   const admin = createAdminClient();
   const { data: created, error: createError } = await admin.auth.admin.createUser({
@@ -68,6 +78,7 @@ export async function createUser(input: CreateUserInput) {
     full_name: input.fullName,
     phone: input.phone,
     email: input.email,
+    department,
     is_active: true,
   });
   if (profileError) {
@@ -79,7 +90,7 @@ export async function createUser(input: CreateUserInput) {
   return { id: created.user.id };
 }
 
-export async function updateUserRole(userId: string, role: UserRole) {
+export async function updateUserRole(userId: string, role: UserRole, department?: string | null) {
   const profile = await requireManagerAccess();
   if (['super_admin', 'administrateur'].includes(role) && profile.role !== 'super_admin') {
     throw new Error('Seul un Super Admin peut attribuer ce rôle.');
@@ -89,7 +100,7 @@ export async function updateUserRole(userId: string, role: UserRole) {
   const supabase = await createClient();
   const { error } = await supabase
     .from('profiles')
-    .update({ role })
+    .update({ role, department: checkDepartment(role, department) })
     .eq('id', userId)
     .eq('organization_id', profile.organization_id);
   if (error) throw new Error(error.message);

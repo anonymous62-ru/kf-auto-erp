@@ -8,6 +8,7 @@ import { createQuickClientSmart, createDocumentSmart } from '@/lib/offline/creat
 import { isLocalId } from '@/lib/offline/db';
 import { updateDocument, type EditableDocumentItem } from '@/lib/documents/edit-actions';
 import { computeDocumentTotals, formatCFA } from '@/lib/documents/calculations';
+import { DOCUMENT_TYPE_LABELS, DOCUMENT_TYPE_WITH_ARTICLE } from '@/lib/documents/labels';
 
 type LineItem = {
   key: string;
@@ -19,14 +20,7 @@ type LineItem = {
   discountPercent: number;
 };
 
-const DOCUMENT_LABELS: Record<DocumentType, string> = {
-  proforma: 'Proforma',
-  devis: 'Devis',
-  facture: 'Facture',
-  bon_livraison: 'Bon de livraison',
-  recu: 'Reçu',
-  avoir: 'Avoir',
-};
+const DOCUMENT_LABELS: Record<string, string> = DOCUMENT_TYPE_LABELS;
 
 export function DocumentForm({
   documentType,
@@ -258,15 +252,15 @@ export function DocumentForm({
 
   return (
     <div className="space-y-4 pb-32">
-      <h1 className="text-lg font-semibold text-kf-navy">
+      <h1 className="page-title">
         {isEdit
-          ? `Modifier ${DOCUMENT_LABELS[documentType].toLowerCase()}${documentNumber ? ` ${documentNumber}` : ''}`
+          ? `Modifier ${DOCUMENT_TYPE_WITH_ARTICLE[documentType] ?? DOCUMENT_LABELS[documentType].toLowerCase()}${documentNumber ? ` ${documentNumber}` : ''}`
           : DOCUMENT_LABELS[documentType]}
       </h1>
 
       {/* ---------- Client ---------- */}
       <section className="card p-4 space-y-2">
-        <p className="field-label uppercase tracking-wide">Client</p>
+        <p className="field-label">Client</p>
         {selectedClient ? (
           <div className="flex items-center justify-between bg-gray-50 rounded-md px-3 py-2">
             <div className="text-sm">
@@ -369,7 +363,7 @@ export function DocumentForm({
 
       {/* ---------- Articles ---------- */}
       <section className="card p-4 space-y-2">
-        <p className="field-label uppercase tracking-wide">Articles</p>
+        <p className="field-label">Articles</p>
 
         <input
           value={productQuery}
@@ -501,7 +495,7 @@ export function DocumentForm({
       {/* ---------- Notes (modification uniquement) ---------- */}
       {isEdit && (
         <section className="card p-4 space-y-2">
-          <label htmlFor="document-notes" className="field-label uppercase tracking-wide block">
+          <label htmlFor="document-notes" className="field-label block">
             Notes
           </label>
           <textarea
@@ -533,7 +527,7 @@ export function DocumentForm({
           </div>
         ) : (
           <button onClick={handleSubmit} disabled={isPending} className="btn-primary w-full max-w-3xl mx-auto">
-            {isPending ? 'Enregistrement...' : `Créer ${DOCUMENT_LABELS[documentType].toLowerCase()}`}
+            {isPending ? 'Enregistrement...' : `Créer ${DOCUMENT_TYPE_WITH_ARTICLE[documentType] ?? DOCUMENT_LABELS[documentType].toLowerCase()}`}
           </button>
         )}
       </div>

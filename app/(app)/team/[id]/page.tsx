@@ -4,15 +4,9 @@ import { createClient } from '@/lib/supabase/server';
 import { getCommercialDetail } from '@/lib/team/actions';
 import { formatCFA } from '@/lib/documents/calculations';
 import { IconChevronRight, IconPhone, IconMail } from '@/components/icons';
+import { DOCUMENT_TYPE_LABELS } from '@/lib/documents/labels';
 
-const DOCUMENT_LABELS: Record<string, string> = {
-  proforma: 'Proforma',
-  devis: 'Devis',
-  facture: 'Facture',
-  bon_livraison: 'Bon de livraison',
-  recu: 'Reçu',
-  avoir: 'Avoir',
-};
+const DOCUMENT_LABELS: Record<string, string> = DOCUMENT_TYPE_LABELS;
 
 const CONTRACT_STATUS_LABELS: Record<string, string> = {
   brouillon: 'Brouillon',
@@ -47,7 +41,7 @@ export default async function TeamMemberDetailPage({ params }: { params: Promise
       </div>
 
       <div className="card p-4">
-        <h1 className="text-lg font-medium">{profile.full_name || '(sans nom)'}</h1>
+        <h1 className="page-title">{profile.full_name || '(sans nom)'}</h1>
         <div className="text-sm text-gray-600 mt-2 space-y-1">
           {profile.phone && (
             <p className="flex items-center gap-1.5">
@@ -85,7 +79,7 @@ export default async function TeamMemberDetailPage({ params }: { params: Promise
                 <p className="text-xs text-gray-400">Relance : {new Date(p.next_relance_at).toLocaleDateString('fr-FR')}</p>
               )}
             </div>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">{p.status}</span>
+            <span className="text-xs px-2 py-0.5 rounded-md bg-purple-100 text-purple-700">{p.status}</span>
           </Link>
         ))}
       </Section>
@@ -112,7 +106,7 @@ export default async function TeamMemberDetailPage({ params }: { params: Promise
               <p className="text-sm font-medium">{c.contract_number ?? '(en attente)'}</p>
               <p className="text-xs text-gray-400">{formatCFA(Number(c.sale_price))}</p>
             </div>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+            <span className="text-xs px-2 py-0.5 rounded-md bg-gray-100 text-gray-600">
               {CONTRACT_STATUS_LABELS[c.status] ?? c.status}
             </span>
           </Link>
@@ -125,7 +119,7 @@ export default async function TeamMemberDetailPage({ params }: { params: Promise
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="space-y-2">
-      <p className="text-xs text-gray-500 uppercase tracking-wide">{title}</p>
+      <p className="text-xs text-gray-500">{title}</p>
       {children}
     </div>
   );

@@ -143,22 +143,16 @@ export async function createDocumentSmart(input: CreateDocumentSmartInput): Prom
   if (navigator.onLine && !clientPending) {
     try {
       const supabase = createClient();
-      const year = new Date().getFullYear();
-      const { data: documentNumber, error: numberError } = await supabase.rpc('get_next_document_number', {
-        p_organization_id: profile.organizationId,
-        p_document_type: input.documentType,
-        p_year: year,
-      });
-      if (numberError) throw numberError;
-      reservedDocumentNumber = documentNumber as string;
-
+      // Numéro officiel attribué par la base au moment de l'insertion
+      // (trigger assign_document_number, migration 0037) : aucun numéro
+      // n'est réservé à l'avance, donc aucun trou possible.
       const { data: document, error: documentError } = await supabase
         .from('documents')
         .insert({
           id: serverId,
           organization_id: profile.organizationId,
           document_type: input.documentType,
-          document_number: documentNumber,
+          document_number: null,
           status: 'brouillon',
           client_id: input.clientId,
           commercial_id: profile.userId,

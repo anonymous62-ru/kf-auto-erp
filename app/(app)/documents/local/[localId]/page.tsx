@@ -9,15 +9,9 @@ import { useParams, useRouter } from 'next/navigation';
 import { db, type PendingDocument } from '@/lib/offline/db';
 import { runSync } from '@/lib/offline/sync';
 import { formatCFA } from '@/lib/documents/calculations';
+import { DOCUMENT_TYPE_LABELS } from '@/lib/documents/labels';
 
-const DOCUMENT_LABELS: Record<string, string> = {
-  proforma: 'Proforma',
-  devis: 'Devis',
-  facture: 'Facture',
-  bon_livraison: 'Bon de livraison',
-  recu: 'Reçu',
-  avoir: 'Avoir',
-};
+const DOCUMENT_LABELS: Record<string, string> = DOCUMENT_TYPE_LABELS;
 
 export default function LocalDocumentPage() {
   const params = useParams<{ localId: string }>();
@@ -68,7 +62,7 @@ export default function LocalDocumentPage() {
           : 'Créé hors connexion, en attente de synchronisation. Rien n\'est perdu, le document sera envoyé automatiquement dès que le réseau revient.'}
       </div>
 
-      <h1 className="text-lg font-medium">
+      <h1 className="page-title">
         {DOCUMENT_LABELS[doc.documentType] ?? doc.documentType} - <span className="text-gray-400">en attente de numéro</span>
       </h1>
 

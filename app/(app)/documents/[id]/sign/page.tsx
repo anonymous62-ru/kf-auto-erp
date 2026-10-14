@@ -46,7 +46,7 @@ export default function SignPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-lg font-medium">Signature</h1>
+      <h1 className="page-title">Signature</h1>
       <p className="text-xs text-gray-500">
         Étape {step === 'commercial' ? '1/2' : '2/2'} :{' '}
         {step === 'commercial' ? 'le commercial signe d\'abord' : 'faites signer le client'}

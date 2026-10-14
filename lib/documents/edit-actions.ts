@@ -12,8 +12,9 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { computeDocumentTotals } from '@/lib/documents/calculations';
+import { invoiceEditBlockReason } from '@/lib/documents/invoice-rules';
 
-const MANAGER_ROLES = ['super_admin', 'administrateur', 'manager', 'comptable', 'receptionniste_sav'];
+const MANAGER_ROLES = ['super_admin', 'administrateur', 'manager', 'comptable', 'receptionniste_sav', 'admin_ventes'];
 const COMMERCIAL_EDITABLE_STATUSES = ['brouillon', 'envoye'];
 
 export type EditableDocumentItem = {
@@ -106,7 +107,10 @@ export async function getDocumentForEdit(documentId: string): Promise<DocumentFo
 
   let reason: string | null = null;
   const isManager = MANAGER_ROLES.includes(role);
-  if (Number(doc.amount_paid ?? 0) > 0 || (paymentCount ?? 0) > 0) {
+  const invoiceReason = invoiceEditBlockReason(doc.document_type, doc.status, role, Number(doc.amount_paid ?? 0));
+  if (invoiceReason) {
+    reason = invoiceReason;
+  } else if (Number(doc.amount_paid ?? 0) > 0 || (paymentCount ?? 0) > 0) {
     reason =
       "Ce document a déjà un paiement enregistré : il ne peut pas être modifié. Un administrateur doit d'abord supprimer le paiement ou le document.";
   } else if (!isManager && doc.commercial_id !== user.id) {

@@ -13,7 +13,7 @@ export default async function EditDocumentPage({ params }: { params: Promise<{ i
     return (
       <div className="space-y-4">
         <section className="card p-4 space-y-3">
-          <h1 className="text-lg font-semibold text-kf-navy">
+          <h1 className="page-title">
             Modification impossible{document.documentNumber ? ` : ${document.documentNumber}` : ''}
           </h1>
           <p className="text-sm text-gray-700">{document.reason}</p>

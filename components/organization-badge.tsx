@@ -5,7 +5,7 @@
 export function OrganizationBadge({
   logoUrl,
   name,
-  className = 'h-9 w-9 rounded-xl',
+  className = 'h-9 w-9 rounded-lg',
   imgClassName = '',
 }: {
   logoUrl?: string | null;

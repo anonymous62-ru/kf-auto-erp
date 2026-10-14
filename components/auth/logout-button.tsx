@@ -4,7 +4,7 @@ import { useTransition } from 'react';
 import { signOut } from '@/lib/auth/actions';
 import { IconLogout } from '@/components/icons';
 
-// Bouton de déconnexion, affiché en bas de la barre latérale (fond sombre).
+// Bouton de déconnexion, affiché en bas de la barre latérale (fond blanc).
 export function LogoutButton() {
   const [isPending, startTransition] = useTransition();
 
@@ -27,7 +27,7 @@ export function LogoutButton() {
       disabled={isPending}
       title="Se déconnecter"
       aria-label="Se déconnecter"
-      className="shrink-0 rounded-md p-1.5 text-white/50 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-40"
+      className="shrink-0 rounded-md p-1.5 text-encre-3 transition-colors hover:bg-papier hover:text-encre disabled:opacity-40"
     >
       <IconLogout className="w-[18px] h-[18px]" />
     </button>

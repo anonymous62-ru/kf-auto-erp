@@ -23,7 +23,7 @@ export function ConvertToClientButton({ prospectId }: { prospectId: string }) {
   if (!confirming) {
     return (
       <button onClick={() => setConfirming(true)} className="btn-primary w-full justify-center">
-        Convertir en client
+        Créer la fiche contact
       </button>
     );
   }
@@ -31,14 +31,14 @@ export function ConvertToClientButton({ prospectId }: { prospectId: string }) {
   return (
     <div className="card p-3 space-y-2 border-green-200 bg-green-50">
       <p className="text-sm text-gray-700">
-        Créer une fiche client à partir de ce prospect ? Ses informations (nom, téléphone, email) seront reprises.
+        Créer la fiche contact (prospect) à partir de ce lead pour lui faire une facture proforma ? Ses informations (nom, téléphone, email) seront reprises. Il deviendra client à son premier versement.
       </p>
       {error && <p className="text-xs text-red-600">{error}</p>}
       <div className="flex gap-2">
         <button
           onClick={handleConvert}
           disabled={isPending}
-          className="flex-1 bg-green-600 text-white rounded-md py-2 text-sm font-medium disabled:opacity-50"
+          className="btn-primary flex-1"
         >
           {isPending ? 'Conversion...' : 'Confirmer'}
         </button>

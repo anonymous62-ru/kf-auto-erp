@@ -29,6 +29,7 @@ export async function middleware(request: NextRequest) {
   // Routes publiques (aucune session requise) :
   // - /verify/* : page scannée via le QR code d'un document imprimé ;
   // - /api/public/* : PDF envoyé au client final, accès par jeton aléatoire ;
+  // - /c/<jeton> : page du catalogue envoyé à un client (lien qui expire) ;
   // - /api/products/<id>/pdf : fiche commerciale d'un véhicule partagée par
   //   WhatsApp (informations catalogue uniquement, aucune donnée client).
   const path = request.nextUrl.pathname;
@@ -36,6 +37,7 @@ export async function middleware(request: NextRequest) {
     path.startsWith('/login') ||
     path.startsWith('/verify') ||
     path.startsWith('/api/public/') ||
+    /^\/c\/[0-9a-f-]{36}$/i.test(path) ||
     /^\/api\/products\/[0-9a-f-]{36}\/pdf$/i.test(path);
   if (!user && !isPublicRoute) {
     return NextResponse.redirect(new URL('/login', request.url));

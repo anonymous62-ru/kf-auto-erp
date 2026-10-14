@@ -13,19 +13,13 @@
 // recommandé (serverExternalPackages). pdf-lib ne dépend pas de React du
 // tout : ce risque disparaît complètement, quelle que soit la façon dont
 // Next.js bundle le code.
-import { PDFDocument, PDFFont, StandardFonts, rgb, RGB } from 'pdf-lib';
+import { PDFDocument, PDFFont, StandardFonts, degrees, rgb, RGB } from 'pdf-lib';
 import { formatCFA } from '@/lib/documents/calculations';
 import { urlToImageBuffer } from '@/lib/documents/pdf/storage-to-data-uri';
 import { parseDesignationLines } from '@/lib/documents/format-lines';
+import { DOCUMENT_PRINT_TITLES } from '@/lib/documents/labels';
 
-const LABELS: Record<string, string> = {
-  proforma: 'PROFORMA',
-  devis: 'DEVIS',
-  facture: 'FACTURE',
-  bon_livraison: 'BON DE LIVRAISON',
-  recu: 'REÇU',
-  avoir: 'AVOIR',
-};
+const LABELS: Record<string, string> = DOCUMENT_PRINT_TITLES;
 
 function t(value: unknown): string {
   if (value === null || value === undefined) return '';
@@ -39,7 +33,7 @@ function t(value: unknown): string {
 // depuis un téléphone suffisent à faire planter tout le PDF. On neutralise
 // ici, une fois pour toutes, les caractères problématiques les plus
 // courants avant qu'ils n'atteignent le moteur de rendu.
-function sanitizeForPdf(str: string): string {
+export function sanitizeForPdf(str: string): string {
   return str
     .replace(/[‘’]/g, "'")
     .replace(/[“”]/g, '"')
@@ -66,6 +60,8 @@ interface Props {
     tax_amount: number;
     total_amount: number;
     status?: string | null;
+    // Avoir : « Avoir sur la facture FAC-... Motif : ... ».
+    reference_note?: string | null;
     commercial_signature_url?: string | null;
     client_signature_url?: string | null;
   };
@@ -88,6 +84,7 @@ interface Props {
     phone?: string | null;
     address?: string | null;
     email?: string | null;
+    client_number?: string | null;
   };
   commercial: { full_name: string; phone?: string | null };
   items: Item[];
@@ -209,7 +206,7 @@ export async function buildDocumentPdf({ document, organization, client, commerc
 
   const clientName = t(client.company_name) || `${t(client.first_name)} ${t(client.last_name)}`.trim();
   const clientLines = [
-    `Client : ${clientName}`,
+    `Client : ${clientName}${client.client_number ? ` (N° ${t(client.client_number)})` : ''}`,
     `Tél : ${t(client.phone)}`,
     `Adresse : ${t(client.address)}`,
     `E-mail : ${t(client.email)}`,
@@ -225,7 +222,36 @@ export async function buildDocumentPdf({ document, organization, client, commerc
   const label = t(LABELS[document.document_type] ?? document.document_type);
   const number = t(document.document_number) || '(en attente de synchronisation)';
   text(`${label} N° : ${number}`, MARGIN, y, { size: 12, bold: true });
+
+  // Sécurité des factures : une facture annulée ne doit jamais pouvoir passer
+  // pour une facture valable.
+  const isInvoiceLike = document.document_type === 'facture' || document.document_type === 'avoir';
+  const watermark = !isInvoiceLike
+    ? ''
+    : t(document.status) === 'annule'
+    ? 'ANNULÉE'
+    : '';
+  const stamp =
+    isInvoiceLike && t(document.status) === 'annule'
+      ? document.document_type === 'avoir'
+        ? 'AVOIR ANNULÉ'
+        : 'FACTURE ANNULÉE'
+      : '';
+  if (stamp) {
+    const clean = sanitizeForPdf(stamp);
+    const w = fontBold.widthOfTextAtSize(clean, 10);
+    text(clean, MARGIN + CONTENT_WIDTH - w, y, { size: 10, bold: true, color: RED });
+  }
   y -= 20;
+
+  if (t(document.reference_note)) {
+    const noteLines = wrapTextPreservingLines(sanitizeForPdf(t(document.reference_note)), font, 9, CONTENT_WIDTH);
+    for (const line of noteLines) {
+      text(line, MARGIN, y, { size: 9 });
+      y -= 12;
+    }
+    y -= 6;
+  }
 
   // Tableau infos
   const infoColW = CONTENT_WIDTH / 4;
@@ -407,6 +433,22 @@ export async function buildDocumentPdf({ document, organization, client, commerc
   rect(MARGIN + seg * 2, bottomBarH, seg * 1, bottomBarH, ORANGE);
   rect(MARGIN + seg * 3, bottomBarH, seg * 3, bottomBarH, NAVY);
   rect(MARGIN + seg * 6, bottomBarH, seg * 1, bottomBarH, BLACK);
+
+  // Filigrane dessiné en dernier, par-dessus les tableaux.
+  if (watermark) {
+    const big = sanitizeForPdf(watermark);
+    const bigSize = 90;
+    const bigW = fontBold.widthOfTextAtSize(big, bigSize);
+    page.drawText(big, {
+      x: PAGE_WIDTH / 2 - (bigW / 2) * Math.cos(Math.PI / 6),
+      y: PAGE_HEIGHT / 2 - (bigW / 2) * Math.sin(Math.PI / 6),
+      size: bigSize,
+      font: fontBold,
+      color: RED,
+      opacity: 0.1,
+      rotate: degrees(30),
+    });
+  }
 
   const bytes = await pdfDoc.save();
   return Buffer.from(bytes);

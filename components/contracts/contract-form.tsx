@@ -100,10 +100,10 @@ export function ContractForm({ initialProduct }: { initialProduct?: ProductOptio
 
   return (
     <div className="space-y-4 pb-6">
-      <h1 className="text-lg font-semibold text-kf-navy">Nouveau contrat de vente</h1>
+      <h1 className="page-title">Nouveau contrat de vente</h1>
 
       <section className="card p-4 space-y-2">
-        <p className="field-label uppercase tracking-wide">Client (acheteur)</p>
+        <p className="field-label">Client (acheteur)</p>
         {selectedClient ? (
           <div className="flex items-center justify-between bg-gray-50 rounded-md px-3 py-2">
             <div className="text-sm">
@@ -186,7 +186,7 @@ export function ContractForm({ initialProduct }: { initialProduct?: ProductOptio
       </section>
 
       <section className="card p-4 space-y-2">
-        <p className="field-label uppercase tracking-wide">Véhicule vendu</p>
+        <p className="field-label">Véhicule vendu</p>
         {selectedProduct ? (
           <div className="flex items-center justify-between bg-gray-50 rounded-md px-3 py-2">
             <div className="text-sm">

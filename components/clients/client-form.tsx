@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { createClientFull, type CreateClientInput } from '@/lib/clients/actions';
 
-export function ClientForm() {
+export function ClientForm({ allowDirectClient = false }: { allowDirectClient?: boolean }) {
   const [form, setForm] = useState<CreateClientInput>({
     clientType: 'particulier',
     firstName: '',
@@ -15,6 +15,7 @@ export function ClientForm() {
     address: '',
     city: '',
     notes: '',
+    status: 'prospect',
   });
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -37,6 +38,28 @@ export function ClientForm() {
 
   return (
     <div className="space-y-3">
+      {allowDirectClient && (
+        <div className="bg-white rounded-lg border p-3 space-y-2">
+          <p className="text-xs text-gray-500">
+            Un prospect devient client automatiquement à son premier versement. Choisissez « Déjà client » seulement pour
+            un acheteur existant (par exemple reçu à l&apos;atelier) : il reçoit tout de suite son numéro client.
+          </p>
+          <div className="flex gap-2">
+            {(['prospect', 'client'] as const).map((st) => (
+              <button
+                key={st}
+                type="button"
+                onClick={() => update('status', st)}
+                className={`flex-1 rounded-md py-1.5 text-sm border ${
+                  form.status === st ? 'bg-kf-navy text-white border-kf-navy' : 'text-gray-600'
+                }`}
+              >
+                {st === 'prospect' ? 'Prospect' : 'Déjà client'}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="bg-white rounded-lg border p-3 space-y-2">
         <div className="flex gap-2">
           {(['particulier', 'entreprise'] as const).map((t) => (

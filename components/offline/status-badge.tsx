@@ -54,9 +54,9 @@ export function OfflineStatusBadge() {
 
   if (isOnline && pending === 0) {
     return (
-      <span className="hidden sm:inline-flex items-center gap-1.5 text-xs text-gray-500">
-        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-        Synchronisé
+      <span className="tb-muted hidden items-center gap-[7px] text-[12.5px] sm:inline-flex">
+        <span className="h-[7px] w-[7px] rounded-full bg-[#35C47D]" />
+        À jour
       </span>
     );
   }

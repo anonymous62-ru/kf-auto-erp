@@ -29,7 +29,7 @@ export default function NewProductPage() {
 
   return (
     <div className="space-y-3">
-      <h1 className="text-lg font-medium">Nouveau produit</h1>
+      <h1 className="page-title">Nouveau produit</h1>
       <div className="bg-white rounded-lg border p-3 space-y-2">
         <label className="text-xs text-gray-500 block">
           Désignation

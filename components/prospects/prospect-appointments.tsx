@@ -112,7 +112,7 @@ export function ProspectAppointments({ prospectId, appointments }: { prospectId:
                 {a.location && <p className="text-xs text-gray-500">{a.location}</p>}
                 {a.notes && <p className="text-xs text-gray-500">{a.notes}</p>}
               </div>
-              <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${STATUS_COLORS[a.status]}`}>
+              <span className={`text-xs px-2 py-0.5 rounded-md shrink-0 ${STATUS_COLORS[a.status]}`}>
                 {STATUS_LABELS[a.status]}
               </span>
             </div>

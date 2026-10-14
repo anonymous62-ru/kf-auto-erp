@@ -13,7 +13,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 // base (ex. une "photo de véhicule" saisie à la main) était téléchargée par
 // le serveur, y compris une signature client d'un autre dossier ou une
 // adresse interne (fuite de fichier / SSRF via la fiche PDF publique).
-const ALLOWED_BUCKETS = ['logos', 'org-branding', 'vehicle-photos', 'document-signatures'];
+const ALLOWED_BUCKETS = ['logos', 'org-branding', 'vehicle-photos', 'vehicules', 'document-signatures'];
 
 function isOurStorageHost(url: string) {
   try {
@@ -77,8 +77,7 @@ export async function urlToDataUri(url: string | null | undefined): Promise<stri
 }
 
 // Même logique que urlToDataUri, mais renvoie un Buffer brut + un type
-// reconnu par docx-js (ImageRun exige "png"|"jpg"|"gif"|"bmp", pas un mime
-// type) — utilisé par l'export DOCX plutôt qu'une data URI.
+// reconnu par pdf-lib (png ou jpg), utilisé par les générateurs PDF.
 export async function urlToImageBuffer(
   url: string | null | undefined
 ): Promise<{ buffer: Buffer; type: 'png' | 'jpg' | 'gif' | 'bmp' } | undefined> {
@@ -110,7 +109,7 @@ export async function urlToImageBuffer(
     // URL externe ou dossier non autorisé : jamais téléchargée par le serveur.
     throw new Error('URL hors du stockage autorisé');
   } catch (e) {
-    console.error(`[docx] impossible de récupérer l'image ${url} :`, e instanceof Error ? e.message : e);
+    console.error(`[pdf] impossible de récupérer l'image ${url} :`, e instanceof Error ? e.message : e);
     return undefined;
   }
 }

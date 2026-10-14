@@ -28,7 +28,7 @@ export default async function TeamActivityPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-lg font-medium">Suivi des commerciaux</h1>
+        <h1 className="page-title">Suivi des commerciaux</h1>
         <p className="text-xs text-gray-500 mt-0.5">
           Vue d'ensemble de l'activité de chaque membre de l'équipe : clients, prospects, documents et contrats.
         </p>

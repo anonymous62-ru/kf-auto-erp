@@ -28,11 +28,37 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const role = (profile?.role ?? null) as UserRole | null;
 
+  // Compteurs discrets de la barre latérale (chacun ne compte que ce que la
+  // base lui laisse voir).
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Lome' });
+  const [leads, deals, overdue, vehicles] = await Promise.all([
+    supabase.from('prospects').select('id', { count: 'exact', head: true }).not('status', 'in', '(converti,perdu)'),
+    supabase.from('deals').select('id', { count: 'exact', head: true }).in('stage', ['decouverte', 'proforma', 'negociation', 'commande']),
+    supabase
+      .from('documents')
+      .select('id', { count: 'exact', head: true })
+      .eq('document_type', 'facture')
+      .gt('balance_due', 0)
+      .lt('due_date', today)
+      .not('status', 'in', '(paye,annule)'),
+    supabase.from('vehicle_units').select('id', { count: 'exact', head: true }).neq('status', 'vendu'),
+  ]);
+  const counts: Record<string, number> = {
+    '/prospects': leads.count ?? 0,
+    '/affaires': deals.count ?? 0,
+    '/impayes': overdue.count ?? 0,
+    '/stock': vehicles.count ?? 0,
+  };
+  const navigation = getNavigation(role).map((g) => ({
+    ...g,
+    items: g.items.map((i) => (counts[i.href] ? { ...i, count: counts[i.href] } : i)),
+  }));
+
   return (
     <>
       <SyncProvider />
       <AppShell
-        navigation={getNavigation(role)}
+        navigation={navigation}
         organization={{ name: organization?.name, logoUrl: organization?.logo_url }}
         user={{
           name: profile?.full_name ?? '',

@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getMyOrganization } from '@/lib/organization/actions';
 import { OrganizationLogoUpload } from '@/components/settings/organization-logo-upload';
 import { OrganizationInfoForm } from '@/components/settings/organization-info-form';
+import { MonthlyTargetForm } from '@/components/settings/monthly-target-form';
 
 export default async function OrganizationSettingsPage() {
   const supabase = await createClient();
@@ -16,7 +17,9 @@ export default async function OrganizationSettingsPage() {
     .eq('id', user?.id ?? '')
     .single();
 
-  if (!profile || !['super_admin', 'administrateur'].includes(profile.role)) {
+  // La direction (dont le manager) règle l'objectif mensuel ; seuls
+  // l'administrateur et le super admin modifient le reste de la fiche.
+  if (!profile || !['super_admin', 'administrateur', 'manager'].includes(profile.role)) {
     redirect('/dashboard');
   }
 
@@ -37,13 +40,18 @@ export default async function OrganizationSettingsPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-lg font-medium">Organisation</h1>
-      <OrganizationLogoUpload
-        organizationId={organization.id}
-        currentLogoUrl={organization.logo_url}
-        organizationName={organization.name}
-      />
-      <OrganizationInfoForm organization={organization} />
+      <h1 className="page-title">Organisation</h1>
+      <MonthlyTargetForm initial={Number(organization.monthly_target ?? 0)} />
+      {profile.role !== 'manager' && (
+        <>
+          <OrganizationLogoUpload
+            organizationId={organization.id}
+            currentLogoUrl={organization.logo_url}
+            organizationName={organization.name}
+          />
+          <OrganizationInfoForm organization={organization} />
+        </>
+      )}
     </div>
   );
 }

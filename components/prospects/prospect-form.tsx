@@ -13,7 +13,15 @@ const SOURCES: { value: ProspectSource; label: string }[] = [
   { value: 'autre', label: 'Autre' },
 ];
 
-export function ProspectForm({ vehicles }: { vehicles: { id: string; designation: string }[] }) {
+export function ProspectForm({
+  vehicles,
+  campaigns = [],
+  commercials = null,
+}: {
+  vehicles: { id: string; designation: string }[];
+  campaigns?: { id: string; name: string }[];
+  commercials?: { id: string; full_name: string }[] | null;
+}) {
   const [form, setForm] = useState<CreateProspectInput>({
     companyName: '',
     contactName: '',
@@ -27,6 +35,8 @@ export function ProspectForm({ vehicles }: { vehicles: { id: string; designation
     vehicleInterestId: '',
     vehicleInterest: '',
     notes: '',
+    campaignId: '',
+    assignedTo: '',
   });
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -119,6 +129,42 @@ export function ProspectForm({ vehicles }: { vehicles: { id: string; designation
           </select>
         </label>
 
+        {campaigns.length > 0 && (
+          <label className="text-xs text-gray-500 block">
+            Campagne à l&apos;origine du contact (optionnel)
+            <select
+              value={form.campaignId}
+              onChange={(e) => update('campaignId', e.target.value)}
+              className="w-full border rounded-md px-2 py-1.5 text-sm mt-0.5"
+            >
+              <option value="">Aucune</option>
+              {campaigns.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+
+        {commercials && commercials.length > 0 && (
+          <label className="text-xs text-gray-500 block">
+            Confier à
+            <select
+              value={form.assignedTo}
+              onChange={(e) => update('assignedTo', e.target.value)}
+              className="w-full border rounded-md px-2 py-1.5 text-sm mt-0.5"
+            >
+              <option value="">Moi-même</option>
+              {commercials.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.full_name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+
         <label className="text-xs text-gray-500 block">
           Véhicule qui l'intéresse (catalogue)
           <select
@@ -126,7 +172,7 @@ export function ProspectForm({ vehicles }: { vehicles: { id: string; designation
             onChange={(e) => update('vehicleInterestId', e.target.value)}
             className="w-full border rounded-md px-2 py-1.5 text-sm mt-0.5"
           >
-            <option value="">— aucun / pas encore précisé —</option>
+            <option value="">Aucun, pas encore précisé</option>
             {vehicles.map((v) => (
               <option key={v.id} value={v.id}>
                 {v.designation}
@@ -157,7 +203,7 @@ export function ProspectForm({ vehicles }: { vehicles: { id: string; designation
         disabled={isPending}
         className="w-full bg-kf-navy text-white rounded-md py-3 text-sm font-medium disabled:opacity-50"
       >
-        {isPending ? 'Création...' : 'Créer ce prospect'}
+        {isPending ? 'Création...' : 'Créer ce lead'}
       </button>
     </div>
   );

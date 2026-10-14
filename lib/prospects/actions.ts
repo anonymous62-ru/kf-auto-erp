@@ -39,6 +39,10 @@ export interface CreateProspectInput {
   vehicleInterest?: string;
   notes?: string;
   nextRelanceAt?: string; // ISO date
+  // Étape 4 : campagne marketing à l'origine du lead.
+  campaignId?: string;
+  // Direction et marketing peuvent confier le lead à un commercial.
+  assignedTo?: string;
 }
 
 async function getCurrentProfile(supabase: Awaited<ReturnType<typeof createClient>>) {
@@ -66,8 +70,9 @@ export async function createProspect(input: CreateProspectInput) {
     .from('prospects')
     .insert({
       organization_id: profile.organization_id,
-      assigned_to: user.id,
+      assigned_to: input.assignedTo || user.id,
       created_by: user.id,
+      campaign_id: input.campaignId || null,
       company_name: input.companyName || null,
       contact_name: input.contactName || null,
       sector: input.sector || null,
@@ -89,7 +94,7 @@ export async function createProspect(input: CreateProspectInput) {
   redirect(`/prospects/${prospect.id}`);
 }
 
-export async function getProspects(statusFilter?: ProspectStatus) {
+export async function getProspects(statusFilter?: ProspectStatus, assignedTo?: string) {
   const supabase = await createClient();
   let request = supabase
     .from('prospects')
@@ -100,6 +105,7 @@ export async function getProspects(statusFilter?: ProspectStatus) {
     .limit(500);
 
   if (statusFilter) request = request.eq('status', statusFilter);
+  if (assignedTo) request = request.eq('assigned_to', assignedTo);
 
   const { data, error } = await request;
   if (error) throw new Error(error.message);
@@ -148,6 +154,8 @@ export async function updateProspect(input: UpdateProspectInput) {
       ...(input.contactName !== undefined ? { contact_name: input.contactName || null } : {}),
       ...(input.sector !== undefined ? { sector: input.sector || null } : {}),
       ...(input.status ? { status: input.status } : {}),
+      ...(input.campaignId !== undefined ? { campaign_id: input.campaignId || null } : {}),
+      ...(input.assignedTo ? { assigned_to: input.assignedTo } : {}),
       updated_at: new Date().toISOString(),
     })
     .eq('id', input.id);

@@ -44,7 +44,7 @@ export async function getProducts() {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('products')
-    .select('id, designation, sku, brand, model, sale_price, tax_rate, quantity_on_hand, stock_min, is_active')
+    .select('id, designation, sku, brand, model, sale_price, tax_rate, quantity_on_hand, stock_min, is_active, photo_url')
     // Produits archivés (supprimés mais encore cités dans d'anciens documents) : masqués.
     .or('is_archived.is.null,is_archived.eq.false')
     .order('designation');

@@ -4,6 +4,7 @@
 import QRCode from 'qrcode';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { buildDocumentPdf } from '@/lib/documents/pdf/build-pdf';
+import { withVehicleNumbers } from '@/lib/documents/item-vehicles';
 
 export async function renderDocumentPdf(
   supabase: SupabaseClient,
@@ -13,9 +14,9 @@ export async function renderDocumentPdf(
   const { data: document, error } = await supabase
     .from('documents')
     .select(
-      `id, document_type, document_number, issue_date, due_date, subtotal, tax_amount, total_amount, status,
+      `id, document_type, document_number, issue_date, due_date, subtotal, tax_amount, total_amount, status, notes,
        commercial_signature_url, client_signature_url, organization_id, commercial_id,
-       clients (first_name, last_name, company_name, phone, address, email)`
+       clients (first_name, last_name, company_name, phone, address, email, client_number)`
     )
     .eq(lookup.column, lookup.value)
     .maybeSingle();
@@ -36,9 +37,10 @@ export async function renderDocumentPdf(
 
   const { data: items } = await supabase
     .from('document_items')
-    .select('designation, quantity, unit_price, line_total')
+    .select('id, designation, quantity, unit_price, line_total')
     .eq('document_id', document.id)
     .order('position');
+  const itemsWithVins = await withVehicleNumbers(supabase, document.id, (items ?? []) as { id: string; designation: string; quantity: number; unit_price: number; line_total: number }[]);
 
   const client = Array.isArray(document.clients) ? document.clients[0] : document.clients;
 
@@ -55,13 +57,14 @@ export async function renderDocumentPdf(
       tax_amount: Number(document.tax_amount || 0),
       total_amount: Number(document.total_amount || 0),
       status: document.status ?? null,
+      reference_note: document.document_type === 'avoir' ? document.notes ?? null : null,
       commercial_signature_url: document.commercial_signature_url ?? null,
       client_signature_url: document.client_signature_url ?? null,
     },
     organization: organization ?? { name: 'KF Auto SARL' },
     client: client ?? {},
     commercial: commercial ?? { full_name: '' },
-    items: items ?? [],
+    items: itemsWithVins,
     qrCodeDataUrl,
   });
 

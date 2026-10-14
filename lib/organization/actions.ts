@@ -15,6 +15,7 @@ export interface OrganizationProfile {
   nif: string | null;
   cnss_number: string | null;
   terms_and_conditions: string | null;
+  monthly_target: number | null;
 }
 
 export async function getMyOrganization(): Promise<OrganizationProfile | null> {
@@ -38,7 +39,7 @@ export async function getMyOrganization(): Promise<OrganizationProfile | null> {
   const { data: organization, error } = await supabase
     .from('organizations')
     .select(
-      'id, name, logo_url, address, phones, bank_name, bank_account, rccm, nif, cnss_number, terms_and_conditions'
+      'id, name, logo_url, address, phones, bank_name, bank_account, rccm, nif, cnss_number, terms_and_conditions, monthly_target'
     )
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -122,4 +123,15 @@ export async function updateOrganizationLogo(organizationId: string, logoUrl: st
 
   revalidatePath('/settings/organisation');
   revalidatePath('/dashboard');
+}
+
+// Objectif mensuel de ventes (tableau de bord) : fixé par la direction.
+export async function setMonthlyTarget(amount: number): Promise<{ error?: string }> {
+  if (!Number.isFinite(amount) || amount < 0) return { error: 'Montant invalide.' };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('set_monthly_target', { p_amount: Math.round(amount) });
+  if (error) return { error: error.message };
+  revalidatePath('/dashboard');
+  revalidatePath('/settings/organisation');
+  return {};
 }

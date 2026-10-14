@@ -85,12 +85,12 @@ export function OrganizationLogoUpload({
       <div>
         <h2 className="text-sm font-semibold text-kf-navy">Logo de l'organisation</h2>
         <p className="text-xs text-gray-500 mt-0.5">
-          Affiché en haut et en pied de page des documents (PDF/Word), ainsi que dans l'application.
+          Affiché en haut et en pied de page des documents PDF, ainsi que dans l'application.
         </p>
       </div>
 
       <div className="flex items-center gap-4">
-        <div className="h-16 w-16 rounded-xl border border-gray-200 bg-white flex items-center justify-center overflow-hidden shrink-0">
+        <div className="h-16 w-16 rounded-lg border border-gray-200 bg-white flex items-center justify-center overflow-hidden shrink-0">
           {logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={logoUrl} alt={organizationName} className="max-h-full max-w-full object-contain" />

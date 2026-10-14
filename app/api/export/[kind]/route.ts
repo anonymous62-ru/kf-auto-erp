@@ -50,7 +50,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ kin
 
     const columns: string =
       kind === 'clients'
-        ? 'client_type, company_name, last_name, first_name, main_contact_name, phone, whatsapp, email, address, city, assigned_to, created_at, notes'
+        ? 'client_number, status, client_type, company_name, last_name, first_name, main_contact_name, phone, whatsapp, email, address, city, assigned_to, created_at, notes'
         : 'company_name, last_name, first_name, contact_name, phone, whatsapp, email, sector, source, status, next_relance_at, assigned_to, created_at, notes';
 
     // Lecture par pages de 1000 (limite par requête de Supabase).
@@ -71,7 +71,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ kin
 
     const header =
       kind === 'clients'
-        ? ['Type', 'Entreprise', 'Nom', 'Prénoms', 'Contact', 'Téléphone', 'WhatsApp', 'Email', 'Adresse', 'Ville', 'Commercial', 'Créé le', 'Notes']
+        ? ['N° client', 'Statut', 'Type', 'Entreprise', 'Nom', 'Prénoms', 'Contact', 'Téléphone', 'WhatsApp', 'Email', 'Adresse', 'Ville', 'Commercial', 'Créé le', 'Notes']
         : ['Entreprise', 'Nom', 'Prénoms', 'Contact', 'Téléphone', 'WhatsApp', 'Email', 'Secteur', 'Origine', 'Statut', 'Prochaine relance', 'Commercial', 'Créé le', 'Notes'];
 
     const lines = rows.map((r) => {
@@ -79,6 +79,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ kin
       const values =
         kind === 'clients'
           ? [
+              r.client_number,
+              r.status === 'client' ? 'Client' : 'Prospect',
               r.client_type === 'entreprise' ? 'Entreprise' : 'Particulier',
               r.company_name, r.last_name, r.first_name, r.main_contact_name, r.phone, r.whatsapp, r.email,
               r.address, r.city, commercial, frDate(r.created_at as string), r.notes,

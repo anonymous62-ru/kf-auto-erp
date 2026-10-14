@@ -20,9 +20,9 @@ export default async function UsersPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-medium">Utilisateurs</h1>
-        <Link href="/users/new" className="text-sm bg-kf-navy text-white rounded-md px-3 py-1.5">
-          + Nouveau
+        <h1 className="page-title">Utilisateurs</h1>
+        <Link href="/users/new" className="btn-primary">
+          Nouveau
         </Link>
       </div>
       <UserList users={users} currentUserId={userData.user.id} />

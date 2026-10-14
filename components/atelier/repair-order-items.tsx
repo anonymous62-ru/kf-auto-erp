@@ -131,10 +131,10 @@ export function RepairOrderItems({
             </select>
             {itemType === 'piece' && (
               <select value={partId} onChange={(e) => handlePartSelect(e.target.value)} className="flex-1 border rounded-md px-2 py-1.5 text-sm">
-                <option value="">— Choisir une pièce —</option>
+                <option value="">Choisir une pièce</option>
                 {parts.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.designation} ({p.reference}) — dispo {Number(p.quantity_on_hand) - Number(p.quantity_reserved)}
+                    {p.designation} ({p.reference}), dispo {Number(p.quantity_on_hand) - Number(p.quantity_reserved)}
                   </option>
                 ))}
               </select>

@@ -67,7 +67,7 @@ export function RelanceButton({
       <button
         onClick={handleWhatsApp}
         disabled={busy}
-        className="text-xs bg-green-600 text-white rounded-md px-2 py-1"
+        className="btn-secondary btn-sm"
       >
         Relancer (WhatsApp)
       </button>

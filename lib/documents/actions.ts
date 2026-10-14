@@ -7,7 +7,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { applyClientSearch } from '@/lib/search';
 
-export type DocumentType = 'proforma' | 'devis' | 'facture' | 'bon_livraison' | 'recu' | 'avoir';
+export type DocumentType = 'proforma' | 'devis' | 'commande' | 'facture' | 'bon_livraison' | 'recu' | 'avoir';
 
 // ---------- Recherche clients ----------
 export async function searchClients(query: string) {
@@ -105,28 +105,19 @@ export async function createDocument(input: CreateDocumentInput) {
   if (input.items.length === 0) throw new Error('Ajoutez au moins un article');
 
   const totals = computeDocumentTotals(input.items);
-  const year = new Date().getFullYear();
   const issueDate = new Date();
   const dueDate = new Date(issueDate);
   dueDate.setMonth(dueDate.getMonth() + 1);
 
-  // Attribution atomique du numero officiel (Phase 2 : fonction PostgreSQL)
-  const { data: documentNumber, error: numberError } = await supabase.rpc(
-    'get_next_document_number',
-    {
-      p_organization_id: profile.organization_id,
-      p_document_type: input.documentType,
-      p_year: year,
-    }
-  );
-  if (numberError) throw new Error(numberError.message);
-
+  // Numéro officiel attribué par la base dans la même transaction que
+  // l'insertion (trigger assign_document_number, migration 0037) : une
+  // facture ne peut ni sauter un numéro ni en recevoir un en double.
   const { data: document, error: documentError } = await supabase
     .from('documents')
     .insert({
       organization_id: profile.organization_id,
       document_type: input.documentType,
-      document_number: documentNumber,
+      document_number: null,
       status: 'brouillon',
       client_id: input.clientId,
       commercial_id: userData.user.id,
@@ -174,131 +165,35 @@ export async function createDocument(input: CreateDocumentInput) {
   redirect(`/documents/${document.id}`);
 }
 
-// ---------- Conversion devis/proforma -> facture ----------
-// Parcours frequent : le client accepte un devis, on le transforme en facture
-// sans ressaisir les lignes. Le document source est marque "accepte" et reste
-// consultable ; la nouvelle facture recoit son propre numero officiel et est
-// liee via parent_document_id.
+// ---------- Conversions : Facture proforma -> Commande -> Facture ----------
+// Circuit de vente (direction, 09/10) : le commercial passe sa facture
+// proforma en commande ; seule l'administration des ventes transforme une
+// commande en facture (ce qui retire le véhicule du stock). Tout se fait dans
+// la fonction PostgreSQL convert_document (migration 0032), qui vérifie les
+// droits, attribue le numéro, copie les lignes et renvoie le document déjà
+// créé en cas de double clic.
 // Renvoie { error } en cas de refus (message lisible en production, où
-// Next.js masque les erreurs levées) ; redirige vers la facture en cas de
-// succès, ou vers la facture déjà existante si le devis a déjà été converti.
-export async function convertToFacture(sourceDocumentId: string): Promise<{ error: string } | undefined> {
-  let target: string;
-  try {
-    target = await convertToFactureInner(sourceDocumentId);
-  } catch (e) {
-    const message = e instanceof Error ? e.message : String(e);
-    if (/row-level security/i.test(message)) {
-      return { error: "Vous n'avez pas le droit de convertir ce document." };
+// Next.js masque les erreurs levées) ; redirige vers le nouveau document.
+export async function convertDocument(
+  sourceDocumentId: string,
+  target: 'commande' | 'facture'
+): Promise<{ error: string } | undefined> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('convert_document', {
+    p_source_id: sourceDocumentId,
+    p_target: target,
+  });
+  if (error || !data) {
+    const message = error?.message ?? '';
+    if (/convert_document/.test(message)) {
+      return { error: "La conversion n'est pas encore installée dans la base (migration 0032)." };
     }
     return { error: message || 'La conversion a échoué.' };
   }
-  redirect(`/documents/${target}`);
-}
-
-async function convertToFactureInner(sourceDocumentId: string): Promise<string> {
-  const supabase = await createClient();
-  const { data: userData } = await supabase.auth.getUser();
-  if (!userData.user) throw new Error('Non authentifie');
-
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('organization_id')
-    .eq('id', userData.user.id)
-    .maybeSingle();
-  if (profileError) throw new Error(`Erreur profil : ${profileError.message}`);
-  if (!profile) throw new Error('Profil introuvable');
-
-  const { data: source, error: sourceError } = await supabase
-    .from('documents')
-    .select('id, document_type, client_id, commercial_id, subtotal, tax_amount, total_amount, notes')
-    .eq('id', sourceDocumentId)
-    .maybeSingle();
-  if (sourceError) throw new Error(sourceError.message);
-  if (!source) throw new Error('Document source introuvable');
-  if (!['devis', 'proforma'].includes(source.document_type)) {
-    throw new Error('Seul un devis ou une proforma peut être converti en facture.');
-  }
-
-  // Garde anti double-clic / double conversion : si une facture existe déjà
-  // pour ce devis, on l'ouvre au lieu d'en créer une seconde (qui aurait
-  // consommé un numéro et retiré le stock deux fois).
-  const { data: existingInvoice } = await supabase
-    .from('documents')
-    .select('id')
-    .eq('parent_document_id', sourceDocumentId)
-    .eq('document_type', 'facture')
-    .limit(1)
-    .maybeSingle();
-  if (existingInvoice) return existingInvoice.id;
-
-  const { data: sourceItems, error: itemsFetchError } = await supabase
-    .from('document_items')
-    .select('product_id, designation, quantity, unit_price, tax_rate, discount_percent, position')
-    .eq('document_id', sourceDocumentId)
-    .order('position');
-  if (itemsFetchError) throw new Error(itemsFetchError.message);
-  if (!sourceItems || sourceItems.length === 0) throw new Error('Ce document ne contient aucun article.');
-
-  const year = new Date().getFullYear();
-  const issueDate = new Date();
-  const dueDate = new Date(issueDate);
-  dueDate.setMonth(dueDate.getMonth() + 1);
-  const { data: documentNumber, error: numberError } = await supabase.rpc('get_next_document_number', {
-    p_organization_id: profile.organization_id,
-    p_document_type: 'facture',
-    p_year: year,
-  });
-  if (numberError) throw new Error(numberError.message);
-
-  const { data: facture, error: factureError } = await supabase
-    .from('documents')
-    .insert({
-      organization_id: profile.organization_id,
-      document_type: 'facture',
-      document_number: documentNumber,
-      status: 'brouillon',
-      client_id: source.client_id,
-      commercial_id: source.commercial_id,
-      parent_document_id: source.id,
-      issue_date: issueDate.toISOString().slice(0, 10),
-      due_date: dueDate.toISOString().slice(0, 10),
-      subtotal: source.subtotal,
-      tax_amount: source.tax_amount,
-      total_amount: source.total_amount,
-      notes: source.notes,
-    })
-    .select('id')
-    .single();
-  if (factureError) throw new Error(factureError.message);
-
-  const itemRows = sourceItems.map((item) => ({
-    document_id: facture.id,
-    product_id: item.product_id,
-    designation: item.designation,
-    quantity: item.quantity,
-    unit_price: item.unit_price,
-    tax_rate: item.tax_rate,
-    discount_percent: item.discount_percent,
-    position: item.position,
-  }));
-  const { error: newItemsError } = await supabase.from('document_items').insert(itemRows);
-  if (newItemsError) throw new Error(newItemsError.message);
-
-  // le devis/proforma d'origine est marque "accepte" (n'a plus de sens de le renvoyer tel quel)
-  await supabase.from('documents').update({ status: 'accepte' }).eq('id', source.id);
-
-  // Règle du DG (04/10) : la conversion en facture retire du stock ce que
-  // le devis d'origine contenait (le devis lui-même n'y avait jamais touché).
-  await applyFactureStockDeduction(supabase, {
-    organizationId: profile.organization_id,
-    documentId: facture.id,
-    documentNumber: documentNumber,
-    items: sourceItems.map((i) => ({ productId: i.product_id, quantity: i.quantity })),
-    performedBy: userData.user.id,
-  });
-
-  return facture.id;
+  revalidatePath('/documents');
+  revalidatePath(`/documents/${sourceDocumentId}`);
+  revalidatePath('/dashboard');
+  redirect(`/documents/${data as string}`);
 }
 
 // ---------- Historique d'envoi ----------
@@ -321,7 +216,9 @@ export async function recordSending(input: {
   });
   if (error) throw new Error(error.message);
 
-  await supabase.from('documents').update({ status: 'envoye' }).eq('id', input.documentId);
+  // Seul un brouillon passe à « envoyé » (une facture émise, payée ou
+  // annulée garde son statut).
+  await supabase.from('documents').update({ status: 'envoye' }).eq('id', input.documentId).eq('status', 'brouillon');
 }
 
 // ---------- Suppression d'un document erroné ----------

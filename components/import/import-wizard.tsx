@@ -169,7 +169,7 @@ export function ImportWizard({ kind }: { kind: ImportKind }) {
       {step === 'upload' && (
         <div className="card p-5 sm:p-6 space-y-5">
           <label
-            className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-10 text-center transition-colors ${
+            className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-4 py-10 text-center transition-colors ${
               busy ? 'border-gray-200 bg-gray-50' : 'border-gray-300 hover:border-kf-navy/40 hover:bg-gray-50 cursor-pointer'
             }`}
             onDragOver={(e) => e.preventDefault()}

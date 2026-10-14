@@ -6,7 +6,7 @@ export default async function NewWarrantyPage() {
   const [clients, models] = await Promise.all([getClientOptions(), getVehicleModelOptions()]);
   return (
     <div className="space-y-3">
-      <h1 className="text-lg font-medium">Nouvelle garantie constructeur</h1>
+      <h1 className="page-title">Nouvelle garantie constructeur</h1>
       <NewWarrantyForm clients={clients} models={models} />
     </div>
   );

@@ -16,6 +16,10 @@ export interface CreateClientInput {
   address?: string;
   city?: string;
   notes?: string;
+  // "client" : contact déjà acheteur (par exemple reçu à l'atelier). Réservé
+  // aux rôles de DIRECT_CLIENT_ROLES ; la base refuse pour les autres, qui
+  // voient leurs prospects devenir clients au premier versement.
+  status?: 'prospect' | 'client';
 }
 
 export async function createClientFull(input: CreateClientInput) {
@@ -51,6 +55,7 @@ export async function createClientFull(input: CreateClientInput) {
       address: input.address || null,
       city: input.city || null,
       notes: input.notes || null,
+      status: input.status === 'client' ? 'client' : 'prospect',
     })
     .select('id')
     .single();
@@ -64,7 +69,7 @@ export async function getClientFull(id: string) {
   const { data, error } = await supabase
     .from('clients')
     .select(
-      'id, client_type, first_name, last_name, company_name, phone, whatsapp, email, address, city, notes'
+      'id, client_type, first_name, last_name, company_name, phone, whatsapp, email, address, city, notes, status, client_number'
     )
     .eq('id', id)
     .single();
@@ -106,13 +111,15 @@ export async function updateClientFull(input: UpdateClientInput) {
   revalidatePath('/clients');
 }
 
-export async function searchClientsFull(query: string) {
+export async function searchClientsFull(query: string, status?: 'prospect' | 'client', assignedTo?: string) {
   const supabase = await createClient();
   let request = supabase
     .from('clients')
-    .select('id, first_name, last_name, company_name, phone, city')
+    .select('id, first_name, last_name, company_name, phone, city, status, client_number')
     .order('created_at', { ascending: false })
     .limit(50);
+  if (status) request = request.eq('status', status);
+  if (assignedTo) request = request.eq('assigned_to', assignedTo);
 
   request = applyClientSearch(request, query);
   const { data, error } = await request;

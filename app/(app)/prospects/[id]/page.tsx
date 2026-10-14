@@ -11,6 +11,11 @@ import { ProspectStatusSelect } from '@/components/prospects/prospect-status-sel
 import { ConvertToClientButton } from '@/components/prospects/convert-to-client-button';
 import { IconPhone, IconChat, IconMail, IconTarget } from '@/components/icons';
 import { toWhatsappNumber } from '@/lib/utils/phone';
+import { SendCatalogueButton } from '@/components/catalogue/send-catalogue';
+import { CatalogueSendingHistory } from '@/components/catalogue/sending-history';
+import { listCatalogueChoices, listCatalogueSendings } from '@/lib/catalogue/actions';
+import { CATALOGUE_SENDER_ROLES } from '@/lib/catalogue/roles';
+import { getCurrentRole } from '@/lib/permissions';
 
 export default async function ProspectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -23,13 +28,17 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
   }
   if (!prospect) notFound();
 
-  const [activities, appointments] = await Promise.all([
+  const [activities, appointments, role, choices, sendings] = await Promise.all([
     getProspectActivities(id),
     getProspectAppointments(id),
+    getCurrentRole(),
+    listCatalogueChoices(),
+    listCatalogueSendings({ prospectId: id }),
   ]);
+  const canSendCatalogue = CATALOGUE_SENDER_ROLES.includes(role ?? '');
 
   const name =
-    prospect.company_name || `${prospect.first_name ?? ''} ${prospect.last_name ?? ''}`.trim() || 'Prospect sans nom';
+    prospect.company_name || `${prospect.first_name ?? ''} ${prospect.last_name ?? ''}`.trim() || 'Lead sans nom';
   const waNumber = toWhatsappNumber(prospect.whatsapp || prospect.phone);
   const vehicleLabel =
     (prospect.products as { designation?: string } | null)?.designation || prospect.vehicle_interest;
@@ -42,7 +51,7 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
             <p className="text-xs text-gray-500 flex items-center gap-1">
               <IconTarget className="w-3.5 h-3.5" /> Prospect
             </p>
-            <h1 className="text-lg font-medium">{name}</h1>
+            <h1 className="page-title">{name}</h1>
             {(prospect.contact_name || prospect.sector) && (
               <p className="text-sm text-gray-500">{[prospect.contact_name, prospect.sector].filter(Boolean).join(' · ')}</p>
             )}
@@ -87,10 +96,30 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
       ) : (
         prospect.client_id && (
           <Link href={`/clients/${prospect.client_id}`} className="btn-secondary w-full justify-center">
-            Voir la fiche client
+            Voir la fiche contact
           </Link>
         )
       )}
+
+      <Link href={`/affaires/new?${prospect.client_id ? `clientId=${prospect.client_id}` : `leadId=${prospect.id}`}`} className="btn-secondary w-full justify-center">
+        Ouvrir une affaire
+      </Link>
+
+      {canSendCatalogue && choices.length > 0 && (
+        <SendCatalogueButton
+          choices={choices}
+          variant="secondary"
+          preselected={prospect.vehicle_interest_id ? [prospect.vehicle_interest_id as string] : []}
+          defaults={{
+            prospectId: prospect.id,
+            clientId: (prospect.client_id as string | null) ?? null,
+            name,
+            phone: prospect.whatsapp || prospect.phone,
+            email: prospect.email,
+          }}
+        />
+      )}
+      <CatalogueSendingHistory rows={sendings} showRecipient />
 
       <ProspectAppointments prospectId={prospect.id} appointments={appointments} />
       <ProspectActivityLog prospectId={prospect.id} activities={activities} />

@@ -19,7 +19,7 @@ export default async function NewUserPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-lg font-medium">Nouvel utilisateur</h1>
+      <h1 className="page-title">Nouvel utilisateur</h1>
       <UserForm canCreateAdmins={profile.role === 'super_admin'} />
     </div>
   );

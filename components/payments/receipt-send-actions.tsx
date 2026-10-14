@@ -90,7 +90,7 @@ export function ReceiptSendActions({
         <button
           onClick={handleWhatsApp}
           disabled={busy}
-          className="flex-1 rounded-md bg-green-600 text-white text-sm font-medium py-2 disabled:opacity-60"
+          className="btn-primary flex-1"
         >
           WhatsApp
         </button>

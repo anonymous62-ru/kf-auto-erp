@@ -9,7 +9,7 @@
 import Dexie, { type Table } from 'dexie';
 
 export type SyncableStatus = 'pending' | 'syncing' | 'synced' | 'error';
-export type DocumentType = 'proforma' | 'devis' | 'facture' | 'bon_livraison' | 'recu' | 'avoir';
+export type DocumentType = 'proforma' | 'devis' | 'commande' | 'facture' | 'bon_livraison' | 'recu' | 'avoir';
 
 // ---------- Cache local (lecture hors-ligne : recherche client/produit) ----------
 export interface CachedClient {

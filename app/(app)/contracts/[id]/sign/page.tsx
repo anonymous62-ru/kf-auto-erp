@@ -43,7 +43,7 @@ export default function SignContractPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-lg font-medium">Signature du contrat</h1>
+      <h1 className="page-title">Signature du contrat</h1>
       <p className="text-xs text-gray-500">
         Étape {step === 'commercial' ? '1/2' : '2/2'} : {step === 'commercial' ? 'le vendeur signe d\'abord' : "faites signer l'acheteur"}
       </p>

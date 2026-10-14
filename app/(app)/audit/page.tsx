@@ -38,7 +38,7 @@ export default async function AuditPage() {
 
   return (
     <div className="space-y-3">
-      <h1 className="text-lg font-medium">Journal d'audit</h1>
+      <h1 className="page-title">Journal d'audit</h1>
       <p className="text-xs text-gray-500">
         Historique des créations, modifications et suppressions sur les documents, clients et paiements de
         l'organisation : les 100 dernières actions.

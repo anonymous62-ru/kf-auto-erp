@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { NavGroup, NavIconName } from '@/lib/navigation';
-import { OrganizationBadge } from '@/components/organization-badge';
 import { LogoutButton } from '@/components/auth/logout-button';
 import {
   IconHome,
@@ -21,8 +20,12 @@ import {
   IconBuilding,
   IconLock,
   IconClipboard,
+  IconCalendar,
+  IconCash,
   IconMenu,
   IconX,
+  IconGauge,
+  IconSearch,
 } from '@/components/icons';
 
 const ICONS: Record<NavIconName, React.ComponentType<{ className?: string }>> = {
@@ -40,12 +43,16 @@ const ICONS: Record<NavIconName, React.ComponentType<{ className?: string }>> = 
   archive: IconArchive,
   building: IconBuilding,
   lock: IconLock,
+  calendar: IconCalendar,
+  cash: IconCash,
+  gauge: IconGauge,
 };
 
-// Pages qui ont besoin de toute la largeur (tableaux, indicateurs). Les
-// autres écrans (fiches, formulaires) restent sur une colonne de lecture
-// confortable, comme avant.
-const WIDE_PAGES = ['/dashboard', '/documents'];
+// Formulaires (création, modification, signature) : colonne de lecture
+// confortable. Listes et fiches : pleine largeur (1400 px au plus).
+function isFormPage(pathname: string) {
+  return /\/(new|edit|sign|import)(\/|$)/.test(pathname) || /\/new\/[^/]+$/.test(pathname);
+}
 
 function isActive(pathname: string, href: string) {
   if (href === '/dashboard') return pathname === '/dashboard';
@@ -64,82 +71,66 @@ export function AppShell({ navigation, organization, user, topbarRight, children
   const pathname = usePathname() ?? '';
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  // Referme le menu mobile dès qu'on change de page.
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
 
-  const current = navigation
-    .flatMap((g) => g.items.map((i) => ({ ...i, group: g.label })))
-    .filter((i) => isActive(pathname, i.href))
-    .sort((a, b) => b.href.length - a.href.length)[0];
-
-  const wide = WIDE_PAGES.includes(pathname);
+  // Tableau de bord : la barre du haut se fond dans le bandeau bleu nuit.
+  const cockpit = pathname === '/dashboard';
+  const narrow = isFormPage(pathname);
 
   return (
-    <div className="min-h-screen lg:pl-64">
-      {/* Barre latérale fixe (ordinateur) */}
-      <aside className="hidden lg:flex lg:fixed lg:inset-y-0 lg:left-0 lg:w-64 lg:flex-col">
+    <div className="min-h-screen lg:grid lg:grid-cols-[232px_minmax(0,1fr)]">
+      <aside className="sticky top-0 hidden h-screen lg:flex lg:flex-col">
         <Sidebar navigation={navigation} organization={organization} user={user} pathname={pathname} />
       </aside>
 
-      {/* Menu coulissant (téléphone / tablette) */}
       {mobileOpen && (
-        <div className="lg:hidden fixed inset-0 z-40">
-          <button
-            aria-label="Fermer le menu"
-            className="absolute inset-0 bg-gray-950/50"
-            onClick={() => setMobileOpen(false)}
-          />
-          <div className="absolute inset-y-0 left-0 w-72 max-w-[85vw] flex flex-col shadow-xl">
+        <div className="fixed inset-0 z-40 lg:hidden">
+          <button aria-label="Fermer le menu" className="absolute inset-0 bg-nuit/50" onClick={() => setMobileOpen(false)} />
+          <div className="absolute inset-y-0 left-0 flex w-[260px] max-w-[85vw] flex-col">
             <Sidebar navigation={navigation} organization={organization} user={user} pathname={pathname} />
             <button
               onClick={() => setMobileOpen(false)}
               aria-label="Fermer le menu"
-              className="absolute top-4 right-3 p-1.5 rounded-md text-white/70 hover:text-white hover:bg-white/10"
+              className="absolute right-3 top-5 rounded-md p-1.5 text-encre-3 hover:bg-papier hover:text-encre"
             >
-              <IconX className="w-5 h-5" />
+              <IconX className="h-5 w-5" />
             </button>
           </div>
         </div>
       )}
 
-      {/* Barre supérieure */}
-      <header className="sticky top-0 z-30 h-14 bg-white/95 backdrop-blur border-b border-gray-200 flex items-center gap-3 px-4 lg:px-8">
-        <button
-          onClick={() => setMobileOpen(true)}
-          aria-label="Ouvrir le menu"
-          className="lg:hidden -ml-1 p-1.5 rounded-md text-gray-600 hover:bg-gray-100"
+      <div className="min-w-0">
+        <header
+          data-tone={cockpit ? 'dark' : 'light'}
+          className={`sticky top-0 z-30 flex h-[62px] items-center gap-3 border-b px-4 lg:px-8 ${
+            cockpit ? 'border-nuit-3 bg-nuit' : 'border-trait bg-white'
+          }`}
         >
-          <IconMenu className="w-5 h-5" />
-        </button>
-        <Link href="/dashboard" className="lg:hidden flex items-center gap-2 min-w-0">
-          <OrganizationBadge
-            logoUrl={organization.logoUrl}
-            name={organization.name}
-            className="h-7 w-7 rounded-md bg-kf-navy text-white text-[11px]"
-          />
-          <span className="text-sm font-semibold text-gray-900 truncate">KF Auto ERP</span>
-        </Link>
-        <nav aria-label="Fil d'Ariane" className="hidden lg:flex items-center gap-2 text-sm min-w-0">
-          {current && current.href !== '/dashboard' ? (
-            <>
-              <span className="text-gray-400">{current.group}</span>
-              <span className="text-gray-300">/</span>
-              <Link href={current.href} className="font-medium text-gray-900 truncate hover:text-kf-navy">
-                {current.label}
-              </Link>
-            </>
-          ) : (
-            <span className="font-medium text-gray-900">Tableau de bord</span>
-          )}
-        </nav>
-        <div className="ml-auto flex items-center gap-2 sm:gap-3">{topbarRight}</div>
-      </header>
+          <button
+            onClick={() => setMobileOpen(true)}
+            aria-label="Ouvrir le menu"
+            className="tb-icon lg:hidden"
+          >
+            <IconMenu className="h-4 w-4" />
+          </button>
+          <form action="/recherche" className="tb-search" role="search">
+            <IconSearch className="h-4 w-4 shrink-0 opacity-70" />
+            <input
+              name="q"
+              type="search"
+              placeholder="Chercher un client, une facture, un numéro de châssis"
+              aria-label="Rechercher"
+            />
+          </form>
+          <div className="ml-auto flex items-center gap-3">{topbarRight}</div>
+        </header>
 
-      <main className="px-4 py-5 sm:py-6 lg:px-8 lg:py-8">
-        <div className={`mx-auto ${wide ? 'max-w-7xl' : 'max-w-4xl'}`}>{children}</div>
-      </main>
+        <main className={cockpit ? '' : 'px-4 pb-11 pt-6 lg:px-8 lg:pt-7'}>
+          {cockpit ? children : <div className={`mx-auto ${narrow ? 'max-w-3xl' : 'max-w-[1400px]'}`}>{children}</div>}
+        </main>
+      </div>
     </div>
   );
 }
@@ -164,70 +155,58 @@ function Sidebar({
     .toUpperCase();
 
   return (
-    <div className="flex h-full flex-col bg-kf-navy-950 text-white">
-      <div className="brand-stripe">
-        <span />
-        <span />
-        <span />
-        <span />
-      </div>
-
-      <Link href="/dashboard" className="flex items-center gap-3 px-5 h-16 border-b border-white/[0.06]">
-        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white p-1">
-          <OrganizationBadge
-            logoUrl={organization.logoUrl}
-            name={organization.name}
-            className="h-full w-full rounded-md text-kf-navy text-xs"
-          />
+    <div className="flex h-full flex-col border-r border-trait bg-white">
+      <Link href="/dashboard" className="flex items-center gap-2.5 px-[18px] py-[18px]">
+        <span className="grid h-[34px] w-[34px] shrink-0 place-items-center rounded-[7px] bg-rouge">
+          <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true">
+            <path d="M7 4v12M7 10l6-6M7 10l6 6" stroke="#fff" strokeWidth="2.4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </span>
         <span className="min-w-0">
-          <span className="block text-sm font-semibold tracking-tight truncate">{organization.name || 'KF Auto SARL'}</span>
-          <span className="block text-[11px] text-white/45">Chery Togo · ERP</span>
+          <b className="block truncate font-display text-[15px] font-bold tracking-[-0.01em]">
+            {organization.name?.replace(/\s*SARL$/i, '') || 'KF Auto'}
+          </b>
+          <span className="block text-xs text-encre-3">Chery Togo</span>
         </span>
       </Link>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
-        {navigation.map((group) => (
-          <div key={group.label}>
-            <p className="px-2 mb-1.5 text-[11px] font-medium uppercase tracking-wider text-white/35">{group.label}</p>
-            <ul className="space-y-0.5">
-              {group.items.map((item) => {
-                const Icon = ICONS[item.icon];
-                const active = isActive(pathname, item.href);
-                return (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      aria-current={active ? 'page' : undefined}
-                      className={`relative flex items-center gap-3 rounded-md px-2.5 py-2 text-sm transition-colors ${
-                        active
-                          ? 'bg-white/[0.08] text-white font-medium'
-                          : 'text-white/65 hover:bg-white/[0.05] hover:text-white'
-                      }`}
-                    >
-                      {active && <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-r bg-kf-red" />}
-                      <Icon className={`w-[18px] h-[18px] shrink-0 ${active ? 'text-kf-orange' : 'text-white/45'}`} />
-                      <span className="truncate">{item.label}</span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
+      <nav aria-label="Navigation principale" className="flex-1 overflow-y-auto px-2.5 pb-3 pt-1">
+        {navigation.map((group, gi) => (
+          <div key={group.label || gi}>
+            {group.label && <p className="px-2.5 pb-1.5 pt-4 text-xs font-medium text-encre-3">{group.label}</p>}
+            {group.items.map((item) => {
+              const Icon = ICONS[item.icon];
+              const active = isActive(pathname, item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  aria-current={active ? 'page' : undefined}
+                  className={`flex items-center gap-2.5 rounded-md px-2.5 py-[7px] text-[13.5px] ${
+                    active ? 'bg-nuit text-white' : 'text-encre-2 hover:bg-papier hover:text-encre'
+                  }`}
+                >
+                  <Icon className="h-[17px] w-[17px] shrink-0" />
+                  <span className="truncate">{item.label}</span>
+                  {typeof item.count === 'number' && item.count > 0 && (
+                    <span className={`num ml-auto text-[11.5px] ${active ? 'text-acier' : 'text-encre-3'}`}>{item.count}</span>
+                  )}
+                </Link>
+              );
+            })}
           </div>
         ))}
       </nav>
 
-      <div className="border-t border-white/[0.06] p-3">
-        <div className="flex items-center gap-3 rounded-md px-2 py-2">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-kf-navy-400 text-xs font-semibold">
-            {initials || '?'}
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-sm font-medium truncate">{user.name || user.email}</span>
-            <span className="block text-[11px] text-white/45 truncate">{user.roleLabel}</span>
-          </span>
-          <LogoutButton />
-        </div>
+      <div className="flex items-center gap-2.5 border-t border-trait px-4 py-3.5">
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-nuit text-xs font-semibold text-white">
+          {initials || '?'}
+        </span>
+        <span className="min-w-0 flex-1">
+          <b className="block truncate text-[13px] font-semibold">{user.name || user.email}</b>
+          <span className="block truncate text-xs text-encre-3">{user.roleLabel}</span>
+        </span>
+        <LogoutButton />
       </div>
     </div>
   );

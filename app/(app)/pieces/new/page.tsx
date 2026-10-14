@@ -46,7 +46,7 @@ export default function NewPartPage() {
 
   return (
     <div className="space-y-3">
-      <h1 className="text-lg font-medium">Nouvelle pièce</h1>
+      <h1 className="page-title">Nouvelle pièce</h1>
       <div className="bg-white rounded-lg border p-3 space-y-2">
         <div className="grid grid-cols-2 gap-2">
           <label className="text-xs text-gray-500 block">

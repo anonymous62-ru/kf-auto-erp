@@ -7,7 +7,7 @@ import { IconDocument, IconCar, IconWrench } from '@/components/icons';
 const FEATURES = [
   {
     icon: IconDocument,
-    title: 'Devis, proformas et factures',
+    title: 'Proformas, commandes et factures',
     text: 'Au modèle KF Auto, avec numérotation, signature et suivi des paiements.',
   },
   {
@@ -34,21 +34,21 @@ export function AuthLayout({
   return (
     <div className="min-h-screen bg-white lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
       {/* Panneau de marque (ordinateur) */}
-      <aside className="relative hidden lg:flex flex-col justify-between overflow-hidden bg-kf-navy-950 text-white px-12 py-10">
+      <aside className="relative hidden lg:flex flex-col justify-between overflow-hidden bg-nuit text-white px-12 py-10 after:absolute after:inset-x-0 after:bottom-0 after:h-[3px] after:bg-rouge">
         <BackgroundPattern />
         <div className="relative flex items-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white p-1.5">
+          <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-white p-1.5">
             <OrganizationBadge logoUrl={branding.logoUrl} name={name} className="h-full w-full rounded-md text-kf-navy text-sm" />
           </span>
           <span>
             <span className="block text-base font-semibold tracking-tight">{name}</span>
-            <span className="block text-xs text-white/50">Chery Togo · Lomé</span>
+            <span className="block text-xs text-white/50">Chery Togo, Lomé</span>
           </span>
         </div>
 
         <div className="relative max-w-md">
-          <p className="text-xs font-medium uppercase tracking-[0.14em] text-kf-orange">KF Auto ERP</p>
-          <h2 className="mt-3 text-3xl font-semibold leading-tight tracking-tight">
+          <p className="text-xs font-medium text-white/60">KF Auto ERP</p>
+          <h2 className="mt-3 font-display text-3xl font-bold leading-tight tracking-[-0.02em]">
             Gestion commerciale et après‑vente
           </h2>
           <ul className="mt-8 space-y-5">
@@ -67,31 +67,19 @@ export function AuthLayout({
         </div>
 
         <div className="relative space-y-4">
-          <div className="brand-stripe w-28 rounded-sm">
-            <span />
-            <span />
-            <span />
-            <span />
-          </div>
           <p className="text-xs text-white/40">© {new Date().getFullYear()} {name}. Usage interne réservé au personnel.</p>
         </div>
       </aside>
 
       {/* Bandeau (téléphone / tablette) */}
-      <div className="lg:hidden bg-kf-navy-950 text-white">
-        <div className="brand-stripe">
-          <span />
-          <span />
-          <span />
-          <span />
-        </div>
+      <div className="border-b-[3px] border-rouge bg-nuit text-white lg:hidden">
         <div className="flex items-center gap-3 px-6 py-5">
           <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white p-1.5">
             <OrganizationBadge logoUrl={branding.logoUrl} name={name} className="h-full w-full rounded-md text-kf-navy text-xs" />
           </span>
           <span>
             <span className="block text-sm font-semibold">{name}</span>
-            <span className="block text-xs text-white/50">KF Auto ERP · Chery Togo</span>
+            <span className="block text-xs text-white/50">KF Auto ERP, Chery Togo</span>
           </span>
         </div>
       </div>
