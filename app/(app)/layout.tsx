@@ -4,6 +4,7 @@ import { OfflineStatusBadge } from '@/components/offline/status-badge';
 import { NotificationBell } from '@/components/notifications/notification-bell';
 import { AppShell } from '@/components/layout/app-shell';
 import { getNavigation } from '@/lib/navigation';
+import { getMyPermissions } from '@/lib/permissions';
 import { roleLabel, type UserRole } from '@/lib/users/roles';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -51,7 +52,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     '/stock': vehicles.count ?? 0,
     '/actions': typeof myActions.data === 'number' ? myActions.data : 0,
   };
-  const navigation = getNavigation(role).map((g) => ({
+  const perms = await getMyPermissions();
+  const navigation = getNavigation(role, perms).map((g) => ({
     ...g,
     items: g.items.map((i) => (counts[i.href] ? { ...i, count: counts[i.href] } : i)),
   }));

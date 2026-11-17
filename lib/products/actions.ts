@@ -106,17 +106,38 @@ export async function updateProduct(input: {
   revalidatePath(`/products/${input.id}`);
 }
 
-export async function adjustStock(input: { productId: string; quantity: number; reason?: string }) {
+// Ajustement manuel du compteur d'un article. Refusé pour un modèle suivi
+// par numéro de châssis : son stock se calcule à partir des véhicules
+// enregistrés (Stock véhicules), un ajustement à la main serait écrasé.
+// Renvoie { error } pour que le vrai message s'affiche aussi en production.
+export async function adjustStock(input: { productId: string; quantity: number; reason?: string }): Promise<{ error?: string }> {
   const supabase = await createClient();
   const { data: userData } = await supabase.auth.getUser();
-  if (!userData.user) throw new Error('Non authentifie');
+  if (!userData.user) return { error: 'Session expirée, reconnectez-vous.' };
+  if (!Number.isFinite(input.quantity) || input.quantity === 0) return { error: 'Quantité invalide.' };
 
   const { data: profile } = await supabase
     .from('profiles')
     .select('organization_id')
     .eq('id', userData.user.id)
     .maybeSingle();
-  if (!profile) throw new Error('Profil introuvable');
+  if (!profile) return { error: 'Profil introuvable.' };
+
+  const { count: unitCount } = await supabase
+    .from('vehicle_units')
+    .select('id', { count: 'exact', head: true })
+    .eq('product_id', input.productId);
+  if ((unitCount ?? 0) > 0) {
+    return { error: 'Ce modèle est suivi par numéro de châssis : ajoutez ou modifiez les véhicules dans Stock véhicules.' };
+  }
+
+  const { data: product } = await supabase
+    .from('products')
+    .select('quantity_on_hand')
+    .eq('id', input.productId)
+    .single();
+  const newQty = Number(product?.quantity_on_hand ?? 0) + input.quantity;
+  if (newQty < 0) return { error: 'Le stock ne peut pas devenir négatif.' };
 
   const { error: moveError } = await supabase.from('stock_movements').insert({
     organization_id: profile.organization_id,
@@ -126,23 +147,21 @@ export async function adjustStock(input: { productId: string; quantity: number; 
     reason: input.reason,
     performed_by: userData.user.id,
   });
-  if (moveError) throw new Error(moveError.message);
+  if (moveError) {
+    return { error: /row-level security/i.test(moveError.message) ? "Vous n'avez pas le droit de modifier le stock." : moveError.message };
+  }
 
-  const { data: product } = await supabase
-    .from('products')
-    .select('quantity_on_hand')
-    .eq('id', input.productId)
-    .single();
-
-  const newQty = Number(product?.quantity_on_hand ?? 0) + input.quantity;
-
-  const { error: updateError } = await supabase
+  const { data: updated, error: updateError } = await supabase
     .from('products')
     .update({ quantity_on_hand: newQty })
-    .eq('id', input.productId);
-  if (updateError) throw new Error(updateError.message);
+    .eq('id', input.productId)
+    .select('id');
+  if (updateError) return { error: updateError.message };
+  if (!updated || updated.length === 0) return { error: "Vous n'avez pas le droit de modifier le stock." };
 
   revalidatePath('/products');
+  revalidatePath(`/products/${input.productId}`);
+  return {};
 }
 
 // Suppression d'un produit (fonction SQL delete_product_secure, migration

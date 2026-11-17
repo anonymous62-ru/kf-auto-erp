@@ -98,7 +98,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                   Ordre de réparation
                 </Link>
               )}
-              {d.canSetTarget && d.target === 0 && (
+              {d.canSetTarget && d.globalSales && d.target === 0 && (
                 <Link href="/objectifs" className="btn border-nuit-3 bg-transparent text-white hover:bg-nuit-2">
                   Fixer les objectifs
                 </Link>
@@ -163,7 +163,14 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         <PendingActionsCounter />
         {d.commercialSide && <PendingDocumentsWidget />}
 
-        {d.commercialSide || d.canSetTarget ? <TeamObjectives manage={d.canSetTarget} periode={periode} /> : null}
+        {/* Sans le droit ventes_globales : « Mes objectifs » uniquement, jamais ceux de l'équipe. */}
+        {d.commercialSide || d.canSetTarget ? (
+          <TeamObjectives
+            manage={d.canSetTarget && d.globalSales}
+            onlyUserId={d.globalSales ? undefined : d.userId}
+            periode={periode}
+          />
+        ) : null}
 
         <Fleet vehicles={d.fleet} />
 
@@ -203,7 +210,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           <section className="card overflow-x-auto" aria-labelledby="ventes-t">
             <div className="flex items-end gap-3 px-4 pb-1 pt-4">
               <h2 id="ventes-t" className="font-display text-[19px] font-bold tracking-[-0.01em]">
-                Ventes en cours
+                {d.globalSales ? 'Ventes en cours' : 'Mes ventes en cours'}
               </h2>
               <Link href="/documents" className="ml-auto text-[13px] font-medium text-[#2357A6] hover:underline">
                 Tout voir
@@ -223,9 +230,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 <thead>
                   <tr>
                     <th className="border-b border-trait px-3 py-[11px] text-left text-xs font-medium text-encre-3 md:px-4">Client</th>
-                    <th className="hidden border-b border-trait px-4 py-[11px] text-left text-xs font-medium text-encre-3 md:table-cell">
-                      Commercial
-                    </th>
+                    {d.globalSales && (
+                      <th className="hidden border-b border-trait px-4 py-[11px] text-left text-xs font-medium text-encre-3 md:table-cell">
+                        Commercial
+                      </th>
+                    )}
                     <th className="border-b border-trait px-3 py-[11px] text-left text-xs font-medium text-encre-3 md:px-4">Étape</th>
                     <th className="border-b border-trait px-3 py-[11px] text-right text-xs font-medium text-encre-3 md:px-4">Montant</th>
                   </tr>
@@ -239,9 +248,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                         </Link>
                         {s.vehicle && <div className="text-[13px] text-encre-2">{s.vehicle}</div>}
                       </td>
-                      <td className={`hidden whitespace-nowrap px-4 py-3 md:table-cell ${i > 0 ? 'border-t border-trait-2' : ''}`}>
-                        {s.commercial ?? ''}
-                      </td>
+                      {d.globalSales && (
+                        <td className={`hidden whitespace-nowrap px-4 py-3 md:table-cell ${i > 0 ? 'border-t border-trait-2' : ''}`}>
+                          {s.commercial ?? ''}
+                        </td>
+                      )}
                       <td className={`whitespace-nowrap px-3 py-3 md:px-4 ${i > 0 ? 'border-t border-trait-2' : ''}`}>
                         <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-1" aria-label={`Étape : ${s.label}`}>
                           <span className="flex gap-1" aria-hidden="true">

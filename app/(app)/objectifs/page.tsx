@@ -3,8 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import { PageHeader } from '@/components/ui/page-header';
 import { ObjectivesManager } from '@/components/objectives/objectives-manager';
 import { PeriodFilter } from '@/components/objectives/period-filter';
+import { hasPermission } from '@/lib/permissions';
 import {
-  canManageObjectives,
   getObjectivesProgress,
   getSalesPeople,
   getVehicleModels,
@@ -20,8 +20,8 @@ export default async function ObjectivesPage({ searchParams }: { searchParams: P
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
-  if (!canManageObjectives(profile?.role as string | undefined)) redirect('/dashboard');
+  // Droit gerer_objectifs de la matrice des droits (migration 0058).
+  if (!(await hasPermission('gerer_objectifs'))) redirect('/dashboard');
 
   const { periode } = await searchParams;
   const period = resolvePeriodFilter(periode);

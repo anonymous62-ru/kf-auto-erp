@@ -86,16 +86,25 @@ export function isShowroomRole(role: string | null | undefined) {
 // priorité le responsable commercial, l'ADV puis la direction.
 const VALIDATOR_ROLES = ['super_admin', 'administrateur', 'manager', 'responsable_commercial', 'admin_ventes', 'comptable'];
 
-function circuitShortcuts(role: string | null | undefined): NavItem[] {
-  if (!role || !VALIDATOR_ROLES.includes(role)) return [];
-  return [
-    { href: '/documents?etape=proforma_a_valider', label: 'Proformas à valider', icon: 'document' },
-    { href: '/documents?etape=commande_a_verifier', label: 'Bons de commande à vérifier', icon: 'document' },
-    { href: '/documents?etape=facture_a_valider', label: 'Factures à valider', icon: 'document' },
-  ];
+// Depuis la migration 0058, chaque raccourci suit le droit correspondant de la
+// matrice réglée par le super admin (perms) ; VALIDATOR_ROLES sert de repli.
+function circuitShortcuts(role: string | null | undefined, perms?: ReadonlySet<string>): NavItem[] {
+  const has = (key: string) => (perms ? perms.has(key) : !!role && VALIDATOR_ROLES.includes(role));
+  const items: NavItem[] = [];
+  if (has('valider_proforma')) {
+    items.push({ href: '/documents?etape=proforma_a_valider', label: 'Proformas à valider', icon: 'document' });
+  }
+  if (has('verifier_commande')) {
+    items.push({ href: '/documents?etape=commande_a_verifier', label: 'Bons de commande à vérifier', icon: 'document' });
+  }
+  if (has('valider_facture')) {
+    items.push({ href: '/documents?etape=facture_a_valider', label: 'Factures à valider', icon: 'document' });
+  }
+  return items;
 }
 
-export function getNavigation(role: string | null | undefined): NavGroup[] {
+// perms : droits de l'utilisateur connecté (lib/permissions.ts getMyPermissions).
+export function getNavigation(role: string | null | undefined, perms?: ReadonlySet<string>): NavGroup[] {
   const groups: NavGroup[] = [
     {
       label: '',
@@ -112,7 +121,7 @@ export function getNavigation(role: string | null | undefined): NavGroup[] {
     items.push(
       { href: '/documents', label: 'Proformas et factures', icon: 'document' },
       // Circuit de vente (0044) : raccourci vers les documents à traiter selon le rôle.
-      ...circuitShortcuts(role),
+      ...circuitShortcuts(role, perms),
       { href: '/clients', label: 'Clients', icon: 'users' }
     );
     if (role && AFFAIRES_ROLES.includes(role)) items.push({ href: '/agenda', label: 'Agenda', icon: 'calendar' });
@@ -158,7 +167,10 @@ export function getNavigation(role: string | null | undefined): NavGroup[] {
   }
 
   // Objectifs commerciaux en véhicules (étape 7) : direction et responsable commercial.
-  if (role && ['super_admin', 'administrateur', 'manager', 'responsable_commercial'].includes(role)) {
+  const canObjectives = perms
+    ? perms.has('gerer_objectifs')
+    : !!role && ['super_admin', 'administrateur', 'manager', 'responsable_commercial'].includes(role);
+  if (canObjectives) {
     const objectives: NavItem = { href: '/objectifs', label: 'Objectifs commerciaux', icon: 'target' };
     const direction = groups.find((g) => g.label === 'Direction');
     if (direction) direction.items.unshift(objectives);
@@ -168,7 +180,7 @@ export function getNavigation(role: string | null | undefined): NavGroup[] {
   groups.push({
     label: 'Parc et atelier',
     items: [
-      { href: '/stock', label: 'Véhicules', icon: 'car' },
+      { href: '/stock', label: 'Stock véhicules', icon: 'car' },
       { href: '/products', label: 'Catalogue', icon: 'archive' },
       { href: '/pieces', label: 'Pièces détachées', icon: 'box' },
       { href: '/atelier', label: 'Atelier', icon: 'wrench' },
@@ -178,10 +190,14 @@ export function getNavigation(role: string | null | undefined): NavGroup[] {
 
   const adminItems: NavItem[] = [];
   if (isAdmin(role)) {
-    adminItems.push(
-      { href: '/team', label: 'Suivi des commerciaux', icon: 'chart' },
-      { href: '/users', label: 'Utilisateurs', icon: 'users' }
-    );
+    adminItems.push({ href: '/team', label: 'Suivi des commerciaux', icon: 'chart' });
+  }
+  if (isAdmin(role) || perms?.has('gerer_utilisateurs')) {
+    adminItems.push({ href: '/users', label: 'Utilisateurs', icon: 'users' });
+  }
+  // Matrice des droits (0054) : réservée au super admin.
+  if (role === 'super_admin') {
+    adminItems.push({ href: '/users/droits', label: 'Droits des rôles', icon: 'lock' });
   }
   if (role && DIRECTION_ROLES.includes(role)) {
     adminItems.push({ href: '/users/demandes', label: "Demandes d'inscription", icon: 'users' });
@@ -201,6 +217,7 @@ export function getNavigation(role: string | null | undefined): NavGroup[] {
   groups.push({
     label: 'Compte',
     items: [
+      { href: '/settings/signature', label: 'Ma signature', icon: 'contract' },
       { href: '/settings/security', label: 'Sécurité (2FA)', icon: 'lock' },
       { href: '/settings/notifications', label: 'Notifications', icon: 'calendar' },
     ],

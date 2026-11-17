@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { renderDocumentPdf } from '@/lib/documents/pdf/render-document-pdf';
 import { canDownloadDocument, sendBlockedReason } from '@/lib/documents/workflow-rules';
+import { getMyPermissions } from '@/lib/permissions';
 
 // PDF consulté par un employé connecté : la RLS décide s'il y a accès.
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -11,11 +12,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     // Circuit de vente (0044) : pas de PDF avant validation (sauf valideurs).
     const { data: auth } = await supabase.auth.getUser();
-    const [{ data: wf }, { data: me }] = await Promise.all([
+    const [{ data: wf }, { data: me }, perms] = await Promise.all([
       supabase.from('documents').select('document_type, workflow_status').eq('id', id).maybeSingle(),
       supabase.from('profiles').select('role').eq('id', auth.user?.id ?? '').maybeSingle(),
+      getMyPermissions(),
     ]);
-    if (wf && !canDownloadDocument(wf.document_type, wf.workflow_status, me?.role)) {
+    if (wf && !canDownloadDocument(wf.document_type, wf.workflow_status, me?.role, perms)) {
       return NextResponse.json({ error: sendBlockedReason(wf.document_type, wf.workflow_status) }, { status: 403 });
     }
 

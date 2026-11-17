@@ -60,6 +60,10 @@ export type CockpitData = {
   monthName: string;
   prevMonthName: string;
   role: string;
+  userId: string;
+  // Droit ventes_globales (migration 0054) : sans lui, le tableau de bord ne
+  // montre que les chiffres de l'utilisateur connecté (migration 0056).
+  globalSales: boolean;
   commercialSide: boolean;
   canSetTarget: boolean;
   // Objectif du mois en nombre de véhicules (migration 0048).
@@ -190,10 +194,22 @@ export async function loadCockpit(): Promise<CockpitData> {
   } = await supabase.auth.getUser();
   const { data: profile } = await supabase.from('profiles').select('full_name, role').eq('id', user?.id ?? '').maybeSingle();
   const role = (profile?.role as string | undefined) ?? '';
+  const me = user?.id ?? '';
+  // Ventes globales : droit modifiable par le super admin, lu dans la base.
+  // Sans ce droit, chaque requête ci-dessous est filtrée explicitement sur
+  // l'utilisateur connecté, sans compter seulement sur la RLS.
+  const { data: globalPerm } = await supabase.rpc('has_permission', { p_permission: 'ventes_globales' });
+  const globalSales = globalPerm === true;
   const commercialSide = canSeeCommercial(role) || ['responsable_showroom', 'vendeur_showroom'].includes(role);
   const billing = ['super_admin', 'administrateur', 'manager', 'admin_ventes'].includes(role);
-  const seesAllAgenda = ['super_admin', 'administrateur', 'manager', 'admin_ventes', 'chef_service'].includes(role);
+  const seesAllAgenda = globalSales && ['super_admin', 'administrateur', 'manager', 'admin_ventes', 'chef_service'].includes(role);
   const seesParts = ['super_admin', 'administrateur', 'manager', 'magasinier', 'chef_atelier'].includes(role);
+
+  // Filtre « mes données » : sans le droit ventes_globales, documents, leads
+  // et affaires sont limités à l'utilisateur connecté.
+  function mine<Q extends { eq: (column: string, value: string) => Q }>(query: Q, column = 'commercial_id'): Q {
+    return globalSales ? query : query.eq(column, me);
+  }
 
   const [
     progressRes,
@@ -210,46 +226,63 @@ export async function loadCockpit(): Promise<CockpitData> {
     agendaRes,
   ] = await Promise.all([
     supabase.rpc('objectives_month_total'),
-    supabase.from('documents').select('id', { count: 'exact', head: true }).eq('document_type', 'commande').not('status', 'in', '(accepte,annule)'),
-    supabase.from('payments').select('amount, payment_date').gte('payment_date', prev.start),
-    supabase
-      .from('documents')
-      .select('id, document_number, balance_due, due_date')
-      .eq('document_type', 'facture')
-      .gt('balance_due', 0)
-      .not('status', 'in', '(paye,annule)'),
-    supabase.from('prospects').select('created_at').gte('created_at', `${prev.start}T00:00:00Z`),
-    supabase.from('deals').select('id', { count: 'exact', head: true }).eq('temperature', 'chaude').in('stage', ['decouverte', 'proforma', 'negociation', 'commande']),
+    mine(supabase.from('documents').select('id', { count: 'exact', head: true }).eq('document_type', 'commande').not('status', 'in', '(accepte,annule)')),
+    globalSales
+      ? supabase.from('payments').select('amount, payment_date').gte('payment_date', prev.start)
+      : supabase
+          .from('payments')
+          .select('amount, payment_date, documents!payments_document_id_fkey!inner(commercial_id)')
+          .eq('documents.commercial_id', me)
+          .gte('payment_date', prev.start),
+    mine(
+      supabase
+        .from('documents')
+        .select('id, document_number, balance_due, due_date')
+        .eq('document_type', 'facture')
+        .gt('balance_due', 0)
+        .not('status', 'in', '(paye,annule)')
+    ),
+    mine(supabase.from('prospects').select('created_at').gte('created_at', `${prev.start}T00:00:00Z`), 'assigned_to'),
+    mine(
+      supabase.from('deals').select('id', { count: 'exact', head: true }).eq('temperature', 'chaude').in('stage', ['decouverte', 'proforma', 'negociation', 'commande']),
+      'assigned_to'
+    ),
     supabase.rpc('list_vehicle_units'),
     supabase.from('products').select('id, body_type'),
-    supabase
-      .from('documents')
-      .select(
-        'id, document_type, status, parent_document_id, total_amount, balance_due, due_date, updated_at, clients(first_name, last_name, company_name), commercial:profiles!documents_commercial_id_fkey(full_name)'
-      )
-      .in('document_type', ['devis', 'proforma', 'commande', 'facture'])
-      .not('status', 'in', '(annule,refuse)')
-      .gte('updated_at', thirtyDaysAgo)
+    mine(
+      supabase
+        .from('documents')
+        .select(
+          'id, document_type, status, parent_document_id, total_amount, balance_due, due_date, updated_at, clients(first_name, last_name, company_name), commercial:profiles!documents_commercial_id_fkey(full_name)'
+        )
+        .in('document_type', ['devis', 'proforma', 'commande', 'facture'])
+        .not('status', 'in', '(annule,refuse)')
+        .gte('updated_at', thirtyDaysAgo)
+    )
       .order('updated_at', { ascending: false })
       .limit(200),
-    supabase
-      .from('documents')
-      .select('id', { count: 'exact', head: true })
-      .in('document_type', ['devis', 'proforma'])
-      .eq('status', 'envoye')
-      .lt('issue_date', sevenDaysAgo),
+    mine(
+      supabase
+        .from('documents')
+        .select('id', { count: 'exact', head: true })
+        .in('document_type', ['devis', 'proforma'])
+        .eq('status', 'envoye')
+        .lt('issue_date', sevenDaysAgo)
+    ),
     seesParts
       ? supabase.from('parts').select('id', { count: 'exact', head: true }).eq('is_active', false)
       : Promise.resolve({ count: 0 }),
-    getAgenda(today, today, seesAllAgenda ? null : user?.id ?? null),
+    getAgenda(today, today, seesAllAgenda ? null : me || null),
   ]);
 
   // Objectif du mois en véhicules : toute l'équipe pour la direction et le
-  // responsable commercial ; pour un commercial qui a un objectif personnel,
-  // le sien, sinon celui de l'équipe.
-  const progress = (progressRes.data ?? {}) as { org_target?: number; org_achieved?: number; my_target?: number; my_achieved?: number };
+  // responsable commercial ; pour un utilisateur qui a les ventes globales et
+  // un objectif personnel, le sien, sinon celui de l'équipe. Sans le droit
+  // ventes_globales : toujours le sien (la base ne renvoie plus les totaux
+  // d'organisation, migration 0056), « Objectif non fixé » s'il n'en a pas.
+  const progress = (progressRes.data ?? {}) as { org_target?: number; org_achieved?: number | null; my_target?: number; my_achieved?: number };
   const canSetTarget = ['super_admin', 'administrateur', 'manager', 'responsable_commercial'].includes(role);
-  const targetScope: 'org' | 'me' = !canSetTarget && Number(progress.my_target ?? 0) > 0 ? 'me' : 'org';
+  const targetScope: 'org' | 'me' = !globalSales || (!canSetTarget && Number(progress.my_target ?? 0) > 0) ? 'me' : 'org';
   const target = Number((targetScope === 'me' ? progress.my_target : progress.org_target) ?? 0);
   const achieved = Number((targetScope === 'me' ? progress.my_achieved : progress.org_achieved) ?? 0);
   const targetPct = target > 0 ? Math.round((achieved / target) * 100) : null;
@@ -426,6 +459,8 @@ export async function loadCockpit(): Promise<CockpitData> {
     monthName: MONTHS[m - 1],
     prevMonthName: MONTHS[(m + 10) % 12],
     role,
+    userId: me,
+    globalSales,
     commercialSide,
     canSetTarget,
     target,
@@ -462,6 +497,8 @@ export function cockpitSummary(d: CockpitData) {
       d.targetScope === 'me'
         ? `Vous êtes à ${d.targetPct} % de votre objectif de ${d.monthName}, ${units(d.achieved)} sur ${d.target}, avec ${days}.`
         : `${month} est à ${d.targetPct} % de l'objectif, ${units(d.achieved)} sur ${d.target}, avec ${days}.`;
+  } else if (d.targetScope === 'me') {
+    first = `${days.charAt(0).toUpperCase()}${days.slice(1)} en ${d.monthName}, vous avez facturé ${units(d.achieved)}. Votre objectif du mois n'est pas encore fixé.`;
   } else {
     first = `${days.charAt(0).toUpperCase()}${days.slice(1)} en ${d.monthName}, ${units(d.achieved)} facturé${d.achieved > 1 ? 's' : ''}.${
       d.canSetTarget ? " Les objectifs du mois ne sont pas encore fixés." : ''
@@ -470,8 +507,13 @@ export function cockpitSummary(d: CockpitData) {
   let second = '';
   if (d.ordersToInvoice > 0) {
     const n = d.ordersToInvoice <= 10 ? NUMBERS[d.ordersToInvoice] : String(d.ordersToInvoice);
-    second =
-      d.ordersToInvoice > 1 ? ` ${n} commandes attendent leur facture.` : ` ${n} commande attend sa facture.`;
+    second = !d.globalSales
+      ? d.ordersToInvoice > 1
+        ? ` ${n} de vos commandes attendent leur facture.`
+        : ` Une de vos commandes attend sa facture.`
+      : d.ordersToInvoice > 1
+        ? ` ${n} commandes attendent leur facture.`
+        : ` ${n} commande attend sa facture.`;
   }
   return first + second;
 }

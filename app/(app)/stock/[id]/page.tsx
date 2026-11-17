@@ -3,15 +3,15 @@ import { notFound } from 'next/navigation';
 import { listVehicleUnits } from '@/lib/stock/actions';
 import { ageLabel, ageTone, daysInStock, vehicleStatus } from '@/lib/stock/labels';
 import { documentTypeLabel } from '@/lib/documents/labels';
-import { can, getCurrentRole } from '@/lib/permissions';
+import { getCurrentRole } from '@/lib/permissions';
+import { canEditStock } from '@/lib/stock/permission';
 import { DIRECTION_ROLES } from '@/lib/users/roles';
 import { VehicleUnitEditor } from '@/components/stock/vehicle-unit-editor';
 import { createClient } from '@/lib/supabase/server';
 
 export default async function VehicleUnitPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const role = await getCurrentRole();
-  const { units } = await listVehicleUnits();
+  const [role, canWrite, { units }] = await Promise.all([getCurrentRole(), canEditStock(), listVehicleUnits()]);
   const unit = units.find((u) => u.id === id);
   if (!unit) notFound();
 
@@ -19,6 +19,17 @@ export default async function VehicleUnitPage({ params }: { params: Promise<{ id
   const supabase = await createClient();
   const { data: extra } = await supabase.from('vehicle_units').select('engine_number').eq('id', id).maybeSingle();
   const engineNumber = (extra?.engine_number as string | null | undefined) ?? null;
+
+  // Pour le formulaire : liste des modèles et lien éventuel à un document
+  // (même retiré : la base refuse alors la suppression).
+  const [{ data: products }, { count: linkCount }] = canWrite
+    ? await Promise.all([
+        supabase.from('products').select('id, designation').or('is_archived.is.null,is_archived.eq.false').order('designation'),
+        supabase.from('document_item_vehicles').select('vehicle_unit_id', { count: 'exact', head: true }).eq('vehicle_unit_id', id),
+      ])
+    : [{ data: [] }, { count: 0 }];
+  const productList = ((products ?? []) as { id: string; designation: string }[]).slice();
+  if (!productList.some((p) => p.id === unit.product_id)) productList.unshift({ id: unit.product_id, designation: unit.model });
 
   const st = vehicleStatus(unit.status);
   const days = daysInStock(unit.entry_date, unit.status === 'vendu' ? unit.sold_at : null);
@@ -55,10 +66,11 @@ export default async function VehicleUnitPage({ params }: { params: Promise<{ id
         )}
         {unit.notes && <p className="mt-2 border-t pt-2 text-xs text-gray-600">{unit.notes}</p>}
       </div>
-      {can(role, 'vehicleUnitWrite') && (
+      {canWrite && (
         <VehicleUnitEditor
           unit={{
             id: unit.id,
+            product_id: unit.product_id,
             vin: unit.vin,
             engine_number: engineNumber,
             color: unit.color,
@@ -68,7 +80,9 @@ export default async function VehicleUnitPage({ params }: { params: Promise<{ id
             notes: unit.notes,
             status: unit.status,
           }}
+          products={productList}
           isDirection={DIRECTION_ROLES.includes(role ?? '')}
+          linkedToDocument={(linkCount ?? 0) > 0 || Boolean(unit.document_id)}
         />
       )}
     </div>

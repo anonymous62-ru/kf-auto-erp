@@ -13,11 +13,18 @@ export function SignaturePad({
   role,
   onDone,
   onUploaded,
+  onCapture,
   submitLabel,
+  title,
 }: {
   documentId: string;
   role: Role;
   onDone: () => void;
+  // Si fourni : l'image dessinée (PNG transparent) est remise à l'appelant,
+  // sans dépôt dans document-signatures (ex. « Ma signature », 0055).
+  // Renvoie un message d'erreur ou null.
+  onCapture?: (blob: Blob) => Promise<string | null>;
+  title?: string;
   // Si fourni : appelé avec l'adresse de la signature déposée, à la place de
   // la mise à jour directe du document. Renvoie un message d'erreur ou null.
   onUploaded?: (url: string) => Promise<string | null>;
@@ -79,6 +86,14 @@ export function SignaturePad({
       const blob: Blob = await new Promise((resolve) =>
         canvas.toBlob((b) => resolve(b!), 'image/png')
       );
+      if (onCapture) {
+        const failure = await onCapture(blob);
+        if (failure) throw new Error(failure);
+        onDone();
+        router.refresh();
+        return;
+      }
+
       const path = `${documentId}/${role}-${Date.now()}.png`;
 
       const { error: uploadError } = await supabase.storage
@@ -125,11 +140,11 @@ export function SignaturePad({
   return (
     <div className="bg-white rounded-lg border p-3 space-y-2">
       <p className="text-sm font-medium">
-        {role === 'commercial'
+        {title ?? (role === 'commercial'
           ? 'Signature du commercial'
           : role === 'n1'
             ? 'Signature du responsable commercial'
-            : 'Signature du client'}
+            : 'Signature du client')}
       </p>
       <canvas
         ref={canvasRef}

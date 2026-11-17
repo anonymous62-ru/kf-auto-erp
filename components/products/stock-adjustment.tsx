@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { adjustStock } from '@/lib/products/actions';
 import { IconAlert, IconCheck, IconX } from '@/components/icons';
@@ -22,22 +22,32 @@ export function StockAdjustment({
   const [success, setSuccess] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const busy = useRef(false);
 
   const low = quantityOnHand <= stockMin;
 
   function apply(sign: 1 | -1) {
+    // Anti double clic : un seul ajustement à la fois.
+    if (busy.current || isPending) return;
     setError(null);
     setSuccess(null);
     const qty = sign * Math.abs(amount);
     if (!qty) return;
+    busy.current = true;
     startTransition(async () => {
       try {
-        await adjustStock({ productId, quantity: qty, reason: reason || undefined });
+        const r = await adjustStock({ productId, quantity: qty, reason: reason || undefined });
+        if (r.error) {
+          setError(r.error);
+          return;
+        }
         setSuccess(sign > 0 ? `+${Math.abs(amount)} ajouté(s) au stock.` : `${Math.abs(amount)} retiré(s) du stock.`);
         setReason('');
         router.refresh();
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Échec de la mise à jour du stock.');
+      } catch {
+        setError('Échec de la mise à jour du stock.');
+      } finally {
+        busy.current = false;
       }
     });
   }

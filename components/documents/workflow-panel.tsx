@@ -139,24 +139,61 @@ export function ProformaWorkflowActions({
   canValidate,
   canAccept,
   canConvert,
+  hasSavedSignature = false,
+  submitNeedsSignature = false,
 }: {
   documentId: string;
   canSubmit: boolean;
   canValidate: boolean;
   canAccept: boolean;
   canConvert: boolean;
+  // 0055 : signature enregistrée du valideur connecté (validation en un clic).
+  hasSavedSignature?: boolean;
+  // Le commercial n'a ni signature enregistrée ni signature à la main : la
+  // soumission sera refusée, on l'indique avant.
+  submitNeedsSignature?: boolean;
 }) {
   const [signing, setSigning] = useState(false);
   if (!canSubmit && !canValidate && !canAccept && !canConvert) return null;
   return (
     <div className="card space-y-2 p-4">
       <p className="field-label">Circuit de validation</p>
+      {canSubmit && submitNeedsSignature && (
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          Aucune signature du commercial : enregistrez-la une fois dans{' '}
+          <a href="/settings/signature" className="font-medium underline">
+            Ma signature
+          </a>{' '}
+          (insérée automatiquement ensuite), ou signez cette proforma à la main avec « Faire signer ».
+        </p>
+      )}
       {canSubmit && (
         <ActionButton
           label="Soumettre à validation"
           pendingLabel="Soumission en cours..."
           run={() => submitProforma(documentId)}
         />
+      )}
+      {canValidate && hasSavedSignature && !signing && (
+        <>
+          <ActionButton
+            label="Valider (signature enregistrée)"
+            pendingLabel="Validation en cours..."
+            run={() => validateProforma(documentId)}
+          />
+          <button type="button" onClick={() => setSigning(true)} className="btn-ghost w-full text-xs">
+            Signer à la main plutôt
+          </button>
+        </>
+      )}
+      {canValidate && !hasSavedSignature && !signing && (
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          Enregistrez votre signature dans{' '}
+          <a href="/settings/signature" className="font-medium underline">
+            Ma signature
+          </a>{' '}
+          pour valider en un clic. Vous pouvez aussi signer à la main ci-dessous.
+        </p>
       )}
       {canValidate &&
         (signing ? (
@@ -172,9 +209,9 @@ export function ProformaWorkflowActions({
               Annuler
             </button>
           </div>
-        ) : (
+        ) : hasSavedSignature ? null : (
           <button type="button" onClick={() => setSigning(true)} className="btn-primary w-full">
-            Valider (avec signature)
+            Signer à la main et valider
           </button>
         ))}
       {canValidate && !signing && (

@@ -13,6 +13,7 @@ import { randomInt } from 'crypto';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { hasPermission } from '@/lib/permissions';
 import { DEPARTMENTS, DIRECTION_ROLES, managedDepartment, type UserRole } from '@/lib/users/roles';
 
 async function getMe() {
@@ -123,7 +124,8 @@ export async function approveUserRequest(
 ): Promise<{ error?: string; email?: string; password?: string; fullName?: string }> {
   const me = await getMe();
   if (!me) return { error: 'Session expirée, reconnectez-vous.' };
-  if (!DIRECTION_ROLES.includes(me.profile.role)) {
+  // Direction, ou tout rôle ayant reçu le droit gerer_utilisateurs (0058).
+  if (!DIRECTION_ROLES.includes(me.profile.role) && !(await hasPermission('gerer_utilisateurs'))) {
     return { error: 'Seuls le DG, le manager et le Super Admin valident les inscriptions.' };
   }
 
@@ -191,7 +193,8 @@ export async function approveUserRequest(
 export async function rejectUserRequest(requestId: string, note?: string): Promise<{ error?: string }> {
   const me = await getMe();
   if (!me) return { error: 'Session expirée, reconnectez-vous.' };
-  if (!DIRECTION_ROLES.includes(me.profile.role)) {
+  // Direction, ou tout rôle ayant reçu le droit gerer_utilisateurs (0058).
+  if (!DIRECTION_ROLES.includes(me.profile.role) && !(await hasPermission('gerer_utilisateurs'))) {
     return { error: 'Seuls le DG, le manager et le Super Admin traitent les inscriptions.' };
   }
   const { data, error } = await me.supabase

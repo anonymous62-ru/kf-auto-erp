@@ -5,6 +5,8 @@ import QRCode from 'qrcode';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { buildDocumentPdf, type PdfVehicle } from '@/lib/documents/pdf/build-pdf';
 import { withVehicleNumbers } from '@/lib/documents/item-vehicles';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { signatureDataUri } from '@/lib/signatures/storage';
 
 export async function renderDocumentPdf(
   supabase: SupabaseClient,
@@ -16,7 +18,8 @@ export async function renderDocumentPdf(
     .select(
       `id, document_type, document_number, issue_date, due_date, subtotal, tax_amount, total_amount, status, notes,
        commercial_signature_url, client_signature_url, signed_at, n1_signature_url, n1_signed_by, n1_signed_at,
-       organization_id, commercial_id,
+       organization_id, commercial_id, validated_by, workflow_status,
+       commercial_signature_path, commercial_stamp_path, n1_signature_path, n1_stamp_path,
        clients (first_name, last_name, company_name, phone, address, email, client_number)`
     )
     .eq(lookup.column, lookup.value)
@@ -89,6 +92,7 @@ export async function renderDocumentPdf(
   }
 
   const client = Array.isArray(document.clients) ? document.clients[0] : document.clients;
+  const images = await resolveSignatureImages(document);
 
   const verifyUrl = `${origin}/verify/${document.id}`;
   const qrCodeDataUrl = await QRCode.toDataURL(verifyUrl, { margin: 0 });
@@ -104,10 +108,13 @@ export async function renderDocumentPdf(
       total_amount: Number(document.total_amount || 0),
       status: document.status ?? null,
       reference_note: document.document_type === 'avoir' ? document.notes ?? null : null,
-      commercial_signature_url: document.commercial_signature_url ?? null,
+      commercial_signature_url: images.commercialSignature,
       client_signature_url: document.client_signature_url ?? null,
       client_signed_at: document.signed_at ?? null,
-      n1_signature_url: document.n1_signature_url ?? null,
+      n1_signature_url: images.n1Signature,
+      commercial_stamp_url: images.commercialStamp,
+      n1_stamp_url: images.n1Stamp,
+      company_box_title: images.companyBoxTitle,
       n1_signer_name: n1SignerName,
       n1_signed_at: document.n1_signed_at ?? null,
     },
@@ -160,4 +167,103 @@ async function loadInvoiceVehicles(
       return { model, color: unit?.color ?? null, vin: unit?.vin ?? null, engine_number: unit?.engine_number ?? null };
     })
     .filter((v) => v.vin || v.model);
+}
+
+// Signatures et cachets à imprimer (0055). L'accès au document a déjà été
+// contrôlé (RLS de l'employé ou jeton public) : les chemins des signatures
+// enregistrées et des cachets sont relus avec la clé service_role, car un
+// commercial ne lit pas le profil des autres et la page publique n'a pas de
+// session.
+// - Proforma : uniquement ce qui a été figé à la soumission (commercial +
+//   cachet service commercial) et à la validation (N+1 + cachet selon son
+//   rôle). Une signature à la main reste prioritaire. Case client : vide si
+//   le client n'a pas signé (signature au stylo).
+// - Bon de commande : signature du commercial (à la main, sinon figée sur le
+//   document, sinon sa signature enregistrée actuelle) + cachet service
+//   commercial.
+// - Facture / avoir émis : case « Signature et cachet de la société » avec
+//   le cachet direction + la signature de la personne qui a validé la
+//   facture (validated_by), sinon la signature à la main existante.
+//   Rien tant que la facture est en préparation ou en validation.
+type SignatureSource = {
+  document_type: string;
+  status?: string | null;
+  workflow_status?: string | null;
+  organization_id: string;
+  commercial_id: string | null;
+  validated_by?: string | null;
+  commercial_signature_url?: string | null;
+  n1_signature_url?: string | null;
+  commercial_signature_path?: string | null;
+  commercial_stamp_path?: string | null;
+  n1_signature_path?: string | null;
+  n1_stamp_path?: string | null;
+};
+
+async function resolveSignatureImages(doc: SignatureSource) {
+  const type = doc.document_type;
+  const isProforma = type === 'devis' || type === 'proforma';
+  const isInvoiceLike = type === 'facture' || type === 'avoir';
+  const result = {
+    commercialSignature: (doc.commercial_signature_url ?? null) as string | null,
+    n1Signature: (doc.n1_signature_url ?? null) as string | null,
+    commercialStamp: null as string | null,
+    n1Stamp: null as string | null,
+    companyBoxTitle: null as string | null,
+  };
+
+  if (isProforma) {
+    const [sig, stamp, n1Sig, n1Stamp] = await Promise.all([
+      result.commercialSignature ? Promise.resolve(null) : signatureDataUri(doc.commercial_signature_path),
+      signatureDataUri(doc.commercial_stamp_path),
+      result.n1Signature ? Promise.resolve(null) : signatureDataUri(doc.n1_signature_path),
+      signatureDataUri(doc.n1_stamp_path),
+    ]);
+    result.commercialSignature = result.commercialSignature ?? sig;
+    result.commercialStamp = stamp;
+    result.n1Signature = result.n1Signature ?? n1Sig;
+    result.n1Stamp = n1Stamp;
+    return result;
+  }
+
+  let admin: ReturnType<typeof createAdminClient>;
+  try {
+    admin = createAdminClient();
+  } catch {
+    return result;
+  }
+  const { data: org } = await admin
+    .from('organizations')
+    .select('stamp_commercial_path, stamp_direction_path')
+    .eq('id', doc.organization_id)
+    .maybeSingle();
+
+  if (type === 'commande') {
+    let sigPath = doc.commercial_signature_path ?? null;
+    if (!result.commercialSignature && !sigPath && doc.commercial_id) {
+      const { data: p } = await admin.from('profiles').select('signature_path').eq('id', doc.commercial_id).maybeSingle();
+      sigPath = p?.signature_path ?? null;
+    }
+    const [sig, stamp] = await Promise.all([
+      result.commercialSignature ? Promise.resolve(null) : signatureDataUri(sigPath),
+      signatureDataUri(doc.commercial_stamp_path ?? org?.stamp_commercial_path),
+    ]);
+    result.commercialSignature = result.commercialSignature ?? sig;
+    result.commercialStamp = stamp;
+    return result;
+  }
+
+  if (isInvoiceLike) {
+    const pending = ['en_preparation', 'en_attente_validation', 'refusee'].includes(doc.workflow_status ?? '');
+    if (pending || doc.status === 'brouillon') return result;
+    result.companyBoxTitle = 'Signature et cachet de la société';
+    let sig: string | null = null;
+    if (doc.validated_by) {
+      const { data: p } = await admin.from('profiles').select('signature_path').eq('id', doc.validated_by).maybeSingle();
+      sig = await signatureDataUri(p?.signature_path);
+    }
+    result.commercialSignature = sig ?? result.commercialSignature;
+    result.commercialStamp = await signatureDataUri(org?.stamp_direction_path);
+  }
+  return result;
 }

@@ -7,12 +7,23 @@ import { formatPeriod, resolvePeriodFilter } from '@/lib/objectives/periods';
 // Tableau de bord : avancement des objectifs (en véhicules).
 //   - direction et responsable commercial : tous les commerciaux ;
 //   - commercial : ses propres objectifs (filtrés par la base).
-export async function TeamObjectives({ manage, periode }: { manage: boolean; periode?: string }) {
+//   - sans le droit ventes_globales (onlyUserId) : uniquement les lignes de
+//     l'utilisateur connecté, même si son rôle gère les objectifs.
+export async function TeamObjectives({
+  manage,
+  periode,
+  onlyUserId,
+}: {
+  manage: boolean;
+  periode?: string;
+  onlyUserId?: string;
+}) {
   const period = resolvePeriodFilter(periode);
-  const [{ rows, error }, people] = await Promise.all([
+  const [{ rows: allRows, error }, people] = await Promise.all([
     getObjectivesProgress(period.range.from, period.range.to),
     manage ? getSalesPeople() : Promise.resolve([]),
   ]);
+  const rows = onlyUserId ? allRows.filter((r) => r.user_id === onlyUserId) : allRows;
 
   // Un commercial sans objectif ne voit pas la section (rien à suivre).
   if (!manage && rows.length === 0 && period.key === 'mois' && !error) return null;

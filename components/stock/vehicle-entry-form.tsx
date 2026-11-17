@@ -25,15 +25,21 @@ export function VehicleEntryForm({
   const [result, setResult] = useState<{ inserted: number; duplicates: string[] } | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  // Un véhicule par ligne : le châssis, puis éventuellement le numéro moteur
-  // (séparés par un espace, une tabulation ou un point-virgule).
+  // Un véhicule par ligne : châssis;moteur;couleur (point-virgule ou
+  // tabulation, comme un copier-coller depuis Excel). Sans point-virgule :
+  // châssis, puis numéro moteur, puis couleur, séparés par des espaces.
   const entries = useMemo(() => {
-    const seen = new Map<string, string | null>();
-    for (const line of vinText.split(/[\n,]+/)) {
-      const [vin, engine] = line.trim().toUpperCase().split(/[\s;]+/).filter(Boolean);
-      if (vin && !seen.has(vin)) seen.set(vin, engine ?? null);
+    const seen = new Map<string, { engineNumber: string | null; color: string | null }>();
+    for (const raw of vinText.split(/\n+/)) {
+      const line = raw.trim();
+      if (!line) continue;
+      const parts = /[;\t]/.test(line) ? line.split(/[;\t]/).map((x) => x.trim()) : line.split(/\s+/);
+      const vin = (parts[0] ?? '').toUpperCase().replace(/\s+/g, '');
+      const engine = (parts[1] ?? '').toUpperCase().replace(/\s+/g, '') || null;
+      const lineColor = parts.slice(2).join(' ').trim() || null;
+      if (vin && !seen.has(vin)) seen.set(vin, { engineNumber: engine, color: lineColor });
     }
-    return Array.from(seen, ([vin, engineNumber]) => ({ vin, engineNumber }));
+    return Array.from(seen, ([vin, v]) => ({ vin, ...v }));
   }, [vinText]);
   const vins = entries.map((e) => e.vin);
 
@@ -46,6 +52,7 @@ export function VehicleEntryForm({
         productId,
         vins,
         engineNumbers: entries.map((e) => e.engineNumber),
+        colors: entries.map((e) => e.color),
         entryDate,
         color,
         modelYear: modelYear ? Number(modelYear) : null,
@@ -79,7 +86,7 @@ export function VehicleEntryForm({
           <input type="date" value={entryDate} max={today} onChange={(e) => setEntryDate(e.target.value)} className="input mt-1" />
         </label>
         <label className="block text-xs text-gray-500">
-          Couleur (optionnel)
+          Couleur commune (optionnel)
           <input value={color} onChange={(e) => setColor(e.target.value)} placeholder="Blanc" className="input mt-1" />
         </label>
         <label className="block text-xs text-gray-500">
@@ -98,18 +105,19 @@ export function VehicleEntryForm({
         <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Showroom Sagbado, parc..." className="input mt-1" />
       </label>
       <label className="block text-xs text-gray-500">
-        Numéros de châssis et numéros moteur (un véhicule par ligne : châssis puis moteur, séparés par un espace)
+        Véhicules à ajouter (un par ligne : châssis;moteur;couleur, le moteur et la couleur sont facultatifs)
         <textarea
           value={vinText}
           onChange={(e) => setVinText(e.target.value)}
           rows={6}
-          placeholder={'LVVDB11B0RD000001 SQRF4J16A00001\nLVVDB11B0RD000002 SQRF4J16A00002'}
+          placeholder={'LVVDB11B0RD000001;SQRF4J16A00001;Blanc\nLVVDB11B0RD000002;SQRF4J16A00002;Gris'}
           className="input mt-1 font-mono"
         />
       </label>
       <p className="text-xs text-gray-500">
-        {vins.length} véhicule{vins.length > 1 ? 's' : ''} à enregistrer. Les mêmes informations (date, couleur, année,
-        emplacement) s&apos;appliquent à toute la liste ; elles se corrigent ensuite véhicule par véhicule.
+        {vins.length} véhicule{vins.length > 1 ? 's' : ''} à enregistrer. La date, l&apos;année et l&apos;emplacement
+        s&apos;appliquent à toute la liste ; la couleur aussi quand elle n&apos;est pas indiquée sur la ligne. Tout se corrige
+        ensuite véhicule par véhicule (bouton Modifier).
       </p>
       {error && <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       {result && (

@@ -20,12 +20,14 @@ export default function SignPage() {
     async function load() {
       const { data } = await supabase
         .from('documents')
-        .select('commercial_signature_url, client_signature_url, document_type, workflow_status')
+        .select('commercial_signature_url, commercial_signature_path, client_signature_url, document_type, workflow_status')
         .eq('id', params.id)
         .single();
       setClientBlocked(!!data && !canSendDocument(data.document_type, data.workflow_status));
       if (data?.client_signature_url) setStep('done');
-      else if (data?.commercial_signature_url) setStep('client');
+      // Signature enregistrée déjà insérée à la soumission (0055) : on passe
+      // directement au client.
+      else if (data?.commercial_signature_url || data?.commercial_signature_path) setStep('client');
       else setStep('commercial');
       setLoading(false);
     }
@@ -75,11 +77,20 @@ export default function SignPage() {
           onDone={() => setStep('client')}
         />
       ) : (
-        <SignaturePad
-          documentId={params.id}
-          role="client"
-          onDone={() => setStep('done')}
-        />
+        <>
+          <SignaturePad
+            documentId={params.id}
+            role="client"
+            onDone={() => setStep('done')}
+          />
+          <p className="text-xs text-gray-500">
+            Signature du client facultative : si le client n&apos;est pas présent, laissez la case vide, il signera au
+            stylo sur le PDF imprimé.
+          </p>
+          <button onClick={() => router.push(`/documents/${params.id}`)} className="btn-secondary w-full">
+            Plus tard (signature au stylo)
+          </button>
+        </>
       )}
     </div>
   );

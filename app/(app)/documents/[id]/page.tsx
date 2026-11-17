@@ -11,6 +11,7 @@ import { listVehicleUnits } from '@/lib/stock/actions';
 import { ageLabel, daysInStock, vehicleStatus } from '@/lib/stock/labels';
 import { ItemVehiclePicker } from '@/components/stock/item-vehicle-picker';
 import { signedStorageUrl } from '@/lib/storage/signed-url';
+import { signatureSignedUrl } from '@/lib/signatures/storage';
 import { DeleteDocumentButton } from '@/components/documents/delete-document-button';
 import { PageHeader } from '@/components/ui/page-header';
 import { Tabs } from '@/components/ui/tabs';
@@ -24,16 +25,13 @@ import {
   isLockedInvoice,
 } from '@/lib/documents/invoice-rules';
 import {
-  ADV_ROLES,
-  INVOICE_VALIDATOR_ROLES,
-  PROFORMA_VALIDATOR_ROLES,
   canDownloadDocument,
   commandeInvoiceValidated,
   isProformaType,
-  isRole,
   sendBlockedReason,
   workflowDisplay,
 } from '@/lib/documents/workflow-rules';
+import { getMyPermissions } from '@/lib/permissions';
 import {
   CommandeCheckActions,
   CommandeResubmitAction,
@@ -72,7 +70,7 @@ export default async function DocumentDetailPage({
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const { data: me } = await supabase.from('profiles').select('role').eq('id', user?.id ?? '').maybeSingle();
+  const { data: me } = await supabase.from('profiles').select('role, signature_path').eq('id', user?.id ?? '').maybeSingle();
   const role = me?.role ?? '';
 
   const { data: document } = await supabase
@@ -81,6 +79,7 @@ export default async function DocumentDetailPage({
       `id, public_token, document_type, document_number, status, subtotal, tax_amount, total_amount, amount_paid, balance_due,
        due_date, issue_date, commercial_signature_url, client_signature_url, client_id, parent_document_id, commercial_id,
        workflow_status, workflow_reason, validated_at, n1_signature_url, submitted_at,
+       commercial_signature_path, commercial_stamp_path, n1_signature_path, n1_stamp_path,
        clients (first_name, last_name, company_name, phone, email, status, client_number, client_type, bank_name, address, nif, rccm)`
     )
     .eq('id', id)
@@ -119,9 +118,12 @@ export default async function DocumentDetailPage({
 
   const client = Array.isArray(document.clients) ? document.clients[0] : document.clients;
   const [commercialSignature, clientSignature, n1Signature] = await Promise.all([
-    signedStorageUrl(document.commercial_signature_url),
+    // Signature à la main en priorité, sinon signature enregistrée figée (0055).
+    document.commercial_signature_url
+      ? signedStorageUrl(document.commercial_signature_url)
+      : signatureSignedUrl(document.commercial_signature_path),
     signedStorageUrl(document.client_signature_url),
-    signedStorageUrl(document.n1_signature_url),
+    document.n1_signature_url ? signedStorageUrl(document.n1_signature_url) : signatureSignedUrl(document.n1_signature_path),
   ]);
   const balanceDue = Number(document.balance_due);
   const isFactureOuRecu = document.document_type === 'facture' || document.document_type === 'recu';
@@ -164,12 +166,12 @@ export default async function DocumentDetailPage({
   const canCreateAvoir =
     isFacture && locked && document.status !== 'annule' && CREDIT_NOTE_ROLES.includes(role) && remainingToCredit > 0;
   const isOwner = document.commercial_id === user?.id;
-  const isValidator = isRole(role, PROFORMA_VALIDATOR_ROLES);
-  const isAdv = isRole(role, ADV_ROLES);
-  const isDirection = isRole(role, INVOICE_VALIDATOR_ROLES);
+  // Droits réglés par le super admin (matrice, migration 0058).
+  const perms = await getMyPermissions();
+  const isValidator = perms.has('valider_proforma');
   const invoiceValidated = commandeInvoiceValidated(step, document.validated_at);
   const wf = workflowDisplay(document.document_type, step, document.validated_at);
-  const canDownload = canDownloadDocument(document.document_type, step, role);
+  const canDownload = canDownloadDocument(document.document_type, step, role, perms);
   const blockedReason = sendBlockedReason(document.document_type, step);
   const open = !['annule', 'refuse'].includes(document.status);
   const proformaActions = {
@@ -177,12 +179,18 @@ export default async function DocumentDetailPage({
     canValidate: isProforma && open && isValidator && step === 'en_attente_validation',
     canAccept: isProforma && open && (isOwner || isValidator) && (step === 'validee' || step === 'envoyee'),
     canConvert: isProforma && open && (isOwner || isValidator) && step === 'acceptee' && !hasChild('commande'),
+    // 0055 : validation en un clic avec la signature enregistrée ; rappel au
+    // commercial qui n'a encore aucune signature.
+    hasSavedSignature: !!me?.signature_path,
+    submitNeedsSignature: isOwner && !me?.signature_path && !document.commercial_signature_url,
   };
-  const canCheckCommande = isCommande && open && isAdv && step === 'a_verifier';
-  const canResubmitCommande = isCommande && open && (isOwner || isValidator || isAdv) && step === 'non_conforme';
-  const canPrepareInvoice = isCommande && open && isAdv && step === 'conforme';
-  const canValidateInvoice = isCommande && open && isDirection && step === 'facture_en_attente_validation' && !invoiceValidated;
-  const canIssueInvoice = isCommande && open && isAdv && invoiceValidated;
+  const canCheckCommande = isCommande && open && perms.has('verifier_commande') && step === 'a_verifier';
+  const canResubmitCommande =
+    isCommande && open && (isOwner || isValidator || perms.has('verifier_commande')) && step === 'non_conforme';
+  const canPrepareInvoice = isCommande && open && perms.has('preparer_facture') && step === 'conforme';
+  const canValidateInvoice =
+    isCommande && open && perms.has('valider_facture') && step === 'facture_en_attente_validation' && !invoiceValidated;
+  const canIssueInvoice = isCommande && open && perms.has('emettre_facture') && invoiceValidated;
 
   // Numéros de châssis (étape 2) : sur une commande ou une facture, chaque
   // ligne d'un modèle suivi par châssis reçoit ses véhicules.
@@ -248,7 +256,7 @@ export default async function DocumentDetailPage({
     document.document_type !== 'avoir' &&
     document.status !== 'annule' &&
     !document.client_signature_url &&
-    (!isProforma || !document.commercial_signature_url || !blockedReason);
+    (!isProforma || !(document.commercial_signature_url || document.commercial_signature_path) || !blockedReason);
 
   // Préparation de la facture : un châssis disponible par véhicule commandé,
   // filtré sur le modèle de la ligne (ancienneté en stock affichée).
@@ -478,7 +486,12 @@ export default async function DocumentDetailPage({
                 </div>
               )}
 
-              {(document.client_signature_url || (isProforma && (document.commercial_signature_url || document.n1_signature_url))) && (
+              {(document.client_signature_url ||
+                (isProforma &&
+                  (document.commercial_signature_url ||
+                    document.commercial_signature_path ||
+                    document.n1_signature_url ||
+                    document.n1_signature_path))) && (
                 <div className={`card grid gap-3 p-4 ${isProforma ? 'grid-cols-3' : 'grid-cols-2'}`}>
                   <div>
                     <p className="mb-1 text-xs text-gray-500">Signature commerciale</p>
@@ -500,9 +513,11 @@ export default async function DocumentDetailPage({
                   )}
                   <div>
                     <p className="mb-1 text-xs text-gray-500">Signature client</p>
-                    {clientSignature && (
+                    {clientSignature ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={clientSignature} alt="Signature client" className="rounded-md border" />
+                    ) : (
+                      <p className="text-xs text-gray-400">Facultative : case laissée vide sur le PDF pour une signature au stylo</p>
                     )}
                   </div>
                 </div>

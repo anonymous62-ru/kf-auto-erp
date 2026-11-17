@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { UserForm } from '@/components/users/user-form';
+import { hasPermission } from '@/lib/permissions';
 
 export default async function NewUserPage() {
   const supabase = await createClient();
@@ -13,7 +14,8 @@ export default async function NewUserPage() {
     .eq('id', userData.user.id)
     .maybeSingle();
 
-  if (!profile || !['super_admin', 'administrateur'].includes(profile.role)) {
+  // Droit gerer_utilisateurs de la matrice des droits (migration 0058).
+  if (!profile || !(await hasPermission('gerer_utilisateurs'))) {
     redirect('/dashboard');
   }
 

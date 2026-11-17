@@ -11,9 +11,10 @@ export type FactureStep = 'en_preparation' | 'en_attente_validation' | 'validee'
 export type WorkflowStep = ProformaStep | CommandeStep | FactureStep;
 
 export const DIRECTION_ROLES = ['super_admin', 'administrateur', 'manager'] as const;
-// Précision du 17/11 : tous les rôles non commerciaux valident (proformas,
-// bons de commande, factures). Seuls les commerciaux (commercial,
-// vendeur_showroom, responsable_showroom) ne valident rien.
+// Valeurs par défaut (précision du 17/11) : tous les rôles non commerciaux
+// valident. Depuis la migration 0058, le super admin règle ces actions par
+// rôle (matrice des droits) : les écrans lisent getMyPermissions, ces listes
+// ne servent plus que de repli.
 export const VALIDATOR_ROLES = ['super_admin', 'administrateur', 'manager', 'responsable_commercial', 'admin_ventes', 'comptable'] as const;
 export const PROFORMA_VALIDATOR_ROLES = VALIDATOR_ROLES;
 export const ADV_ROLES = VALIDATOR_ROLES;
@@ -68,8 +69,22 @@ export function canSendDocument(type: string | null | undefined, step: string | 
   return true;
 }
 
-export function canDownloadDocument(type: string | null | undefined, step: string | null | undefined, role: string | null | undefined) {
+// perms : droits de l'utilisateur (matrice du super admin, migration 0058).
+// Sans perms, repli sur les rôles par défaut.
+export function canDownloadDocument(
+  type: string | null | undefined,
+  step: string | null | undefined,
+  role: string | null | undefined,
+  perms?: ReadonlySet<string>
+) {
   if (canSendDocument(type, step)) return true;
+  if (perms) {
+    if (isProformaType(type)) return perms.has('valider_proforma');
+    if (type === 'commande' || type === 'facture') {
+      return ['verifier_commande', 'preparer_facture', 'valider_facture', 'emettre_facture'].some((k) => perms.has(k));
+    }
+    return false;
+  }
   const r = role ?? '';
   if (isProformaType(type)) return (PROFORMA_VALIDATOR_ROLES as readonly string[]).includes(r);
   if (type === 'commande' || type === 'facture') {

@@ -4,6 +4,7 @@ import { getMyOrganization } from '@/lib/organization/actions';
 import { OrganizationLogoUpload } from '@/components/settings/organization-logo-upload';
 import { OrganizationInfoForm } from '@/components/settings/organization-info-form';
 import { MonthlyTargetForm } from '@/components/settings/monthly-target-form';
+import { OrganizationStamps } from '@/components/settings/organization-stamps';
 
 export default async function OrganizationSettingsPage() {
   const supabase = await createClient();
@@ -51,6 +52,7 @@ export default async function OrganizationSettingsPage() {
             organizationName={organization.name}
           />
           <OrganizationInfoForm organization={organization} />
+          <OrganizationStamps organizationId={organization.id} />
         </>
       )}
     </div>

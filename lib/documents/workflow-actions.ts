@@ -50,12 +50,17 @@ export async function submitProforma(documentId: string) {
   return call('submit_proforma', { p_id: documentId }, documentId, 'La soumission a échoué.');
 }
 
-// La signature du N+1 est déposée dans le bucket privé document-signatures
-// par le navigateur (même stockage que la signature commerciale), puis son
-// adresse est enregistrée ici avec la validation.
-export async function validateProforma(documentId: string, signatureUrl: string) {
-  if (!signatureUrl) return { error: 'Signez la proforma avant de la valider.' };
-  return call('validate_proforma', { p_id: documentId, p_n1_signature_url: signatureUrl }, documentId, 'La validation a échoué.');
+// Sans adresse : la base insère la signature enregistrée du valideur (« Ma
+// signature », 0055) et le cachet correspondant à son rôle (validation en un
+// clic). Avec une adresse : signature dessinée à la main, déposée par le
+// navigateur dans le bucket privé document-signatures.
+export async function validateProforma(documentId: string, signatureUrl?: string | null) {
+  return call(
+    'validate_proforma',
+    { p_id: documentId, p_n1_signature_url: signatureUrl || null },
+    documentId,
+    'La validation a échoué.'
+  );
 }
 
 export async function refuseProforma(documentId: string, reason: string) {

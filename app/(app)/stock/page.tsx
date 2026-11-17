@@ -11,7 +11,7 @@ import {
   type VehicleStatus,
 } from '@/lib/stock/labels';
 import { documentTypeLabel } from '@/lib/documents/labels';
-import { can, getCurrentRole } from '@/lib/permissions';
+import { canEditStock } from '@/lib/stock/permission';
 import { IconPlus } from '@/components/icons';
 import { createClient } from '@/lib/supabase/server';
 import { PageHeader } from '@/components/ui/page-header';
@@ -27,8 +27,7 @@ type Search = { modele?: string; statut?: string; age?: string; tri?: string; q?
 
 export default async function StockPage({ searchParams }: { searchParams: Promise<Search> }) {
   const params = await searchParams;
-  const role = await getCurrentRole();
-  const canWrite = can(role, 'vehicleUnitWrite');
+  const canWrite = await canEditStock();
   const { units, error } = await listVehicleUnits();
   const view = params.vue === 'liste' ? 'liste' : 'grille';
   const supabase = await createClient();
@@ -98,7 +97,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
             <ViewToggle view={view} hrefFor={(v) => href({ vue: v === 'liste' ? 'liste' : undefined })} />
             {canWrite && (
               <Link href="/stock/new" className="btn-primary">
-                <IconPlus className="h-4 w-4" /> Entrée en stock
+                <IconPlus className="h-4 w-4" /> Ajouter des véhicules
               </Link>
             )}
           </>
@@ -110,9 +109,9 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
       {units.length === 0 && !error ? (
         <div className="card">
           <EmptyState
-            title="Aucun véhicule enregistré par numéro de châssis"
-            description="Saisissez les véhicules présents au parc : un numéro de châssis par ligne, avec leur date d'entrée."
-            action={canWrite ? { href: '/stock/new', label: 'Saisir les véhicules du parc' } : undefined}
+            title="Aucun véhicule en stock."
+            description="Ajoutez vos châssis : modèle, n° de châssis, n° moteur, couleur, date d'arrivée. Vous pouvez coller une liste (un véhicule par ligne : châssis;moteur;couleur)."
+            action={canWrite ? { href: '/stock/new', label: 'Ajouter des véhicules' } : undefined}
           />
         </div>
       ) : (
@@ -204,7 +203,8 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
                 const st = vehicleStatus(u.status);
                 const photo = photoOf.get(u.product_id);
                 return (
-                  <Link key={u.id} href={`/stock/${u.id}`} className="card card-hover block overflow-hidden">
+                  <div key={u.id} className="card card-hover overflow-hidden">
+                    <Link href={`/stock/${u.id}`} className="block">
                     {photo ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={photo} alt={u.model} className="aspect-[16/10] w-full bg-[#F7F8FA] object-contain" loading="lazy" />
@@ -227,7 +227,15 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
                         </p>
                       )}
                     </div>
-                  </Link>
+                    </Link>
+                    {canWrite && (
+                      <div className="border-t border-gray-100 px-3 py-2">
+                        <Link href={`/stock/${u.id}#modifier`} className="text-sm font-medium text-kf-navy hover:underline">
+                          Modifier
+                        </Link>
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>
@@ -242,6 +250,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
                     <th className="hidden md:table-cell">Entrée</th>
                     <th className="hidden lg:table-cell">Document</th>
                     <th>Statut</th>
+                    {canWrite && <th className="text-right">Action</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -267,6 +276,13 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
                         <td>
                           <span className={st.badge}>{st.short}</span>
                         </td>
+                        {canWrite && (
+                          <td className="text-right">
+                            <Link href={`/stock/${u.id}#modifier`} className="text-sm font-medium text-kf-navy hover:underline">
+                              Modifier
+                            </Link>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}

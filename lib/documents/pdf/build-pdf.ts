@@ -90,6 +90,13 @@ interface Props {
     n1_signature_url?: string | null;
     n1_signer_name?: string | null;
     n1_signed_at?: string | null;
+    // Cachets de l'entreprise (0055), en data URI : à côté de la signature
+    // du commercial (ou de la société) et de celle du N+1.
+    commercial_stamp_url?: string | null;
+    n1_stamp_url?: string | null;
+    // Bon de commande, facture, avoir : libellé de la case de gauche
+    // (« Signature commerciale » par défaut, « La direction » sur la facture).
+    company_box_title?: string | null;
   };
   organization: {
     name: string;
@@ -212,12 +219,14 @@ export async function buildDocumentPdf({ document, organization, client, commerc
   const isProforma = document.document_type === 'devis' || document.document_type === 'proforma';
   const isInvoiceLike = document.document_type === 'facture' || document.document_type === 'avoir';
 
-  const [logo, commercialSig, clientSig, n1Sig, qrImage] = await Promise.all([
+  const [logo, commercialSig, clientSig, n1Sig, qrImage, commercialStamp, n1Stamp] = await Promise.all([
     embedImage(pdfDoc, organization.logo_url),
     embedImage(pdfDoc, document.commercial_signature_url),
     embedImage(pdfDoc, document.client_signature_url),
     isProforma ? embedImage(pdfDoc, document.n1_signature_url) : Promise.resolve(undefined),
     qrCodeDataUrl ? embedImage(pdfDoc, qrCodeDataUrl) : Promise.resolve(undefined),
+    embedImage(pdfDoc, document.commercial_stamp_url),
+    isProforma ? embedImage(pdfDoc, document.n1_stamp_url) : Promise.resolve(undefined),
   ]);
 
   let y = PAGE_HEIGHT - MARGIN;
@@ -542,6 +551,28 @@ export async function buildDocumentPdf({ document, organization, client, commerc
     page.drawImage(img, { x, y: yTop - dims.height * ratio, width: dims.width * ratio, height: dims.height * ratio });
   }
 
+  // Signature + cachet dans une zone (x, yTop, w, h) : le cachet est calé à
+  // droite, la signature à gauche et la déborde légèrement (comme un cachet
+  // apposé à côté d'une signature au stylo). Rien ne sort de la zone.
+  function drawSignatureAndStamp(sig: PDFImage | undefined, stamp: PDFImage | undefined, x: number, yTop: number, w: number, h: number) {
+    let sigMaxW = w;
+    if (stamp) {
+      const dims = stamp.scale(1);
+      const size = Math.min(h, w * 0.45);
+      const ratio = Math.min(size / dims.width, size / dims.height);
+      const sw = dims.width * ratio;
+      const sh = dims.height * ratio;
+      page.drawImage(stamp, { x: x + w - sw, y: yTop - (h + sh) / 2, width: sw, height: sh, opacity: 0.9 });
+      sigMaxW = w - sw * 0.55;
+    }
+    if (sig) {
+      const dims = sig.scale(1);
+      const ratio = Math.min(sigMaxW / dims.width, (h * 0.9) / dims.height);
+      const sh = dims.height * ratio;
+      page.drawImage(sig, { x, y: yTop - (h + sh) / 2, width: dims.width * ratio, height: sh });
+    }
+  }
+
   const qrSize = 46;
   if (isProforma) {
     // Proforma : trois cadres de signature (commercial, responsable
@@ -552,22 +583,25 @@ export async function buildDocumentPdf({ document, organization, client, commerc
     const sigTop = y;
     const gap = 8;
     const boxW = (CONTENT_WIDTH - qrSize - gap * 3) / 3;
+    // Case client : facultative, vide pour une signature au stylo si le
+    // client n'a pas signé électroniquement.
     const boxes = [
-      { title: 'Le commercial', img: commercialSig, name: t(commercial.full_name), date: '' },
+      { title: 'Le commercial', img: commercialSig, stamp: commercialStamp, name: t(commercial.full_name), date: '' },
       {
         title: 'Le responsable commercial (N+1)',
         img: n1Sig,
+        stamp: n1Stamp,
         name: n1Sig || document.n1_signed_at ? t(document.n1_signer_name) : '',
         date: formatDateFr(document.n1_signed_at),
       },
-      { title: 'Le client', img: clientSig, name: clientName, date: formatDateFr(document.client_signed_at) },
+      { title: 'Le client', img: clientSig, stamp: undefined, name: clientName, date: formatDateFr(document.client_signed_at) },
     ];
     boxes.forEach((b, i) => {
       const x = MARGIN + i * (boxW + gap);
       border(x, sigTop, boxW, boxH, LIGHT);
       const title = wrapText(sanitizeForPdf(b.title), fontBold, 7.5, boxW - 8)[0] ?? '';
       text(title, x + 4, sigTop - 10, { size: 7.5, bold: true });
-      drawSignatureImage(b.img, x + 4, sigTop - 15, boxW - 8, 40);
+      drawSignatureAndStamp(b.img, b.stamp, x + 4, sigTop - 13, boxW - 8, 48);
       const nameLine = wrapText(sanitizeForPdf(b.name ? `Nom : ${b.name}` : 'Nom :'), font, 7, boxW - 8)[0] ?? '';
       text(nameLine, x + 4, sigTop - boxH + 16, { size: 7, color: b.name ? BLACK : GREY });
       text(b.date ? `Date : ${b.date}` : 'Date :', x + 4, sigTop - boxH + 6, { size: 7, color: b.date ? BLACK : GREY });
@@ -579,10 +613,11 @@ export async function buildDocumentPdf({ document, organization, client, commerc
     y = sigTop - boxH - 6;
   } else {
     // Bon de commande, facture, avoir : signatures commerciale et client.
-    ensureSpace(qrSize + 6);
+    const zoneH = 50;
+    ensureSpace(Math.max(qrSize, zoneH + 10) + 6);
     const sigTop = y;
-    text('Signature commerciale', MARGIN, sigTop, { size: 8 });
-    drawSignatureImage(commercialSig, MARGIN, sigTop - 12, 100, 40);
+    text(sanitizeForPdf(t(document.company_box_title) || 'Signature commerciale'), MARGIN, sigTop, { size: 8 });
+    drawSignatureAndStamp(commercialSig, commercialStamp, MARGIN, sigTop - 8, 160, zoneH);
     const clientSigX = MARGIN + CONTENT_WIDTH / 2;
     text('Signature du client', clientSigX, sigTop, { size: 8 });
     drawSignatureImage(clientSig, clientSigX, sigTop - 12, 100, 40);
@@ -590,7 +625,7 @@ export async function buildDocumentPdf({ document, organization, client, commerc
       const dims = qrImage.scale(1);
       page.drawImage(qrImage, { x: MARGIN + CONTENT_WIDTH - qrSize, y: sigTop - qrSize, width: qrSize, height: (qrSize * dims.height) / dims.width });
     }
-    y = sigTop - qrSize - 6;
+    y = sigTop - Math.max(qrSize, zoneH + 10) - 6;
   }
 
   // Pied de page de chaque page : logo (rappelé ici comme sur le modèle

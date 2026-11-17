@@ -1,7 +1,14 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { updateUserRole, toggleUserActive, updateUserProfile } from '@/lib/users/actions';
+import {
+  updateUserRole,
+  toggleUserActive,
+  updateUserProfile,
+  getUserDeletionPreview,
+  deleteUserAccount,
+  type DeletionPreview,
+} from '@/lib/users/actions';
 import { roleLabel, ALL_ROLES, DEPARTMENTS, departmentLabel, type UserRole } from '@/lib/users/roles';
 
 type UserRow = {
@@ -13,10 +20,35 @@ type UserRow = {
   department?: string | null;
   is_active: boolean;
   created_at: string;
+  deleted_at?: string | null;
 };
 
-export function UserList({ users, currentUserId }: { users: UserRow[]; currentUserId: string }) {
+const OWNED_LABELS: Record<string, string> = {
+  clients: 'client(s)',
+  prospects_clients: 'prospect(s) du fichier clients',
+  leads: 'lead(s)',
+  documents: 'proforma(s) ou bon(s) de commande en cours',
+  affaires: 'affaire(s) ouverte(s)',
+  rendez_vous: 'rendez-vous prévu(s)',
+  actions: 'action(s) en attente',
+};
+
+export function UserList({
+  users,
+  currentUserId,
+  currentUserRole,
+}: {
+  users: UserRow[];
+  currentUserId: string;
+  currentUserRole?: string | null;
+}) {
   const [rows, setRows] = useState<(UserRow & { pendingRole?: UserRole })[]>(users);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [preview, setPreview] = useState<DeletionPreview | null>(null);
+  const [transferTo, setTransferTo] = useState('');
+  const [confirmName, setConfirmName] = useState('');
+  const [understood, setUnderstood] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -55,6 +87,63 @@ export function UserList({ users, currentUserId }: { users: UserRow[]; currentUs
     });
   }
 
+  function startDeleting(u: UserRow) {
+    setError(null);
+    setNotice(null);
+    setEditingId(null);
+    setDeletingId(u.id);
+    setPreview(null);
+    setTransferTo('');
+    setConfirmName('');
+    setUnderstood(false);
+    startTransition(async () => {
+      const res = await getUserDeletionPreview(u.id);
+      if (res.error) {
+        setError(res.error);
+        setDeletingId(null);
+        return;
+      }
+      setPreview(res.preview ?? null);
+    });
+  }
+
+  function handleDelete(u: UserRow, retry = false) {
+    if (isPending) return;
+    setError(null);
+    setNotice(null);
+    startTransition(async () => {
+      const res = await deleteUserAccount(u.id, retry ? null : transferTo || null, retry ? u.full_name : confirmName);
+      if (res.error) {
+        setError(res.error);
+        return;
+      }
+      if (res.result === 'supprime') {
+        setRows((prev) => prev.filter((r) => r.id !== u.id));
+        setNotice(`Le compte de ${u.full_name} a été supprimé définitivement (aucun historique).`);
+      } else {
+        setRows((prev) =>
+          prev.map((r) =>
+            r.id === u.id ? { ...r, is_active: false, deleted_at: new Date().toISOString(), email: null, phone: null } : r
+          )
+        );
+        setNotice(
+          `Le compte de ${u.full_name} a été supprimé : il ne peut plus se connecter. Son nom reste visible dans l'historique (documents signés, paiements, journal).`
+        );
+      }
+      setDeletingId(null);
+    });
+  }
+
+  function canDeleteRow(u: UserRow) {
+    if (u.id === currentUserId) return false;
+    if (u.role === 'super_admin' && currentUserRole !== 'super_admin') return false;
+    if (u.role === 'administrateur' && !['super_admin', 'administrateur'].includes(currentUserRole ?? '')) return false;
+    return true;
+  }
+
+  const activeRows = rows.filter((u) => !u.deleted_at);
+  const deletedRows = rows.filter((u) => !!u.deleted_at);
+
   function startEditing(u: UserRow) {
     setError(null);
     setEditingId(u.id);
@@ -81,9 +170,20 @@ export function UserList({ users, currentUserId }: { users: UserRow[]; currentUs
   return (
     <div className="space-y-2">
       {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md p-2">{error}</p>}
-      {rows.map((u) => {
+      {notice && <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-md p-2">{notice}</p>}
+      {activeRows.map((u) => {
         const isSelf = u.id === currentUserId;
         const isEditing = editingId === u.id;
+        const isDeleting = deletingId === u.id;
+        const colleagues = activeRows
+          .filter((c) => c.id !== u.id && c.is_active)
+          .sort((a, b) => Number(b.role === u.role) - Number(a.role === u.role) || a.full_name.localeCompare(b.full_name));
+        const nameMatches =
+          confirmName.trim().replace(/\s+/g, ' ').toLocaleLowerCase('fr') ===
+          u.full_name.trim().replace(/\s+/g, ' ').toLocaleLowerCase('fr');
+        const needsTransfer = (preview?.owned_total ?? 0) > 0;
+        const canConfirm =
+          !!preview && !preview.last_super_admin && nameMatches && understood && (!needsTransfer || !!transferTo);
         return (
           <div key={u.id} className="bg-white rounded-lg border p-3 space-y-2">
             {isEditing ? (
@@ -193,12 +293,133 @@ export function UserList({ users, currentUserId }: { users: UserRow[]; currentUs
                   >
                     {u.is_active ? 'Désactiver' : 'Réactiver'}
                   </button>
+                  {canDeleteRow(u) && (
+                    <button
+                      disabled={isPending}
+                      onClick={() => (isDeleting ? setDeletingId(null) : startDeleting(u))}
+                      className="text-xs border border-red-200 text-red-700 rounded-md px-3 py-1.5 disabled:opacity-40"
+                    >
+                      Supprimer
+                    </button>
+                  )}
                 </div>
+                {isDeleting && (
+                  <div className="border border-red-200 bg-red-50 rounded-md p-3 space-y-2 text-sm">
+                    <p className="font-medium text-red-800">Supprimer le compte de {u.full_name}</p>
+                    {!preview ? (
+                      <p className="text-xs text-gray-600">Vérification des données liées...</p>
+                    ) : preview.last_super_admin ? (
+                      <p className="text-xs text-red-700">Impossible : c&apos;est le dernier super admin.</p>
+                    ) : (
+                      <>
+                        <p className="text-xs text-gray-700">
+                          La personne ne pourra plus se connecter. Pour une absence temporaire, utilisez plutôt
+                          « Désactiver ».
+                        </p>
+                        {needsTransfer ? (
+                          <div className="space-y-1">
+                            <p className="text-xs text-gray-700">
+                              À transférer :{' '}
+                              {Object.entries(preview.owned)
+                                .filter(([, n]) => n > 0)
+                                .map(([k, n]) => `${n} ${OWNED_LABELS[k] ?? k}`)
+                                .join(', ')}
+                              .
+                            </p>
+                            <label className="text-xs text-gray-600 block">
+                              Collègue qui reprend ces dossiers
+                              <select
+                                value={transferTo}
+                                disabled={isPending}
+                                onChange={(e) => setTransferTo(e.target.value)}
+                                className="w-full border rounded-md px-2 py-1.5 text-sm mt-0.5 bg-white"
+                              >
+                                <option value="">Choisir un collègue...</option>
+                                {colleagues.map((c) => (
+                                  <option key={c.id} value={c.id}>
+                                    {c.full_name} ({roleLabel(c.role)})
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-gray-700">Aucun client ni dossier en cours à transférer.</p>
+                        )}
+                        <p className="text-xs text-gray-700">
+                          {preview.history > 0
+                            ? "Son nom reste visible dans l'historique (documents signés ou validés, paiements, journal d'audit) ; ses coordonnées sont effacées."
+                            : 'Aucun historique : le compte sera effacé entièrement.'}
+                        </p>
+                        <label className="text-xs text-gray-600 block">
+                          Pour confirmer, retapez le nom complet : <strong>{u.full_name}</strong>
+                          <input
+                            value={confirmName}
+                            disabled={isPending}
+                            onChange={(e) => setConfirmName(e.target.value)}
+                            className="w-full border rounded-md px-2 py-1.5 text-sm mt-0.5 bg-white"
+                          />
+                        </label>
+                        <label className="flex items-center gap-2 text-xs text-gray-700">
+                          <input
+                            type="checkbox"
+                            checked={understood}
+                            disabled={isPending}
+                            onChange={(e) => setUnderstood(e.target.checked)}
+                          />
+                          Je comprends que cette suppression est définitive.
+                        </label>
+                      </>
+                    )}
+                    <div className="flex gap-2">
+                      <button
+                        disabled={isPending || !canConfirm}
+                        onClick={() => handleDelete(u)}
+                        className="flex-1 bg-red-700 text-white rounded-md py-2 text-sm disabled:opacity-50"
+                      >
+                        {isPending ? 'Suppression...' : 'Supprimer définitivement'}
+                      </button>
+                      <button
+                        disabled={isPending}
+                        onClick={() => setDeletingId(null)}
+                        className="flex-1 border rounded-md py-2 text-sm bg-white"
+                      >
+                        Annuler
+                      </button>
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>
         );
       })}
+      {deletedRows.length > 0 && (
+        <details className="bg-white rounded-lg border p-3 text-sm">
+          <summary className="cursor-pointer text-gray-600">
+            Comptes supprimés, historique conservé ({deletedRows.length})
+          </summary>
+          <ul className="mt-2 space-y-1">
+            {deletedRows.map((u) => (
+              <li key={u.id} className="flex items-center justify-between gap-2 text-xs text-gray-500">
+                <span>
+                  {u.full_name} ({roleLabel(u.role)})
+                </span>
+                {canDeleteRow(u) && (
+                  <button
+                    disabled={isPending}
+                    onClick={() => handleDelete(u, true)}
+                    className="border rounded-md px-2 py-1 disabled:opacity-40"
+                    title="À utiliser si la suppression de l'accès avait échoué"
+                  >
+                    Relancer la suppression
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
     </div>
   );
 }

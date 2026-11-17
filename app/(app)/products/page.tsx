@@ -28,6 +28,9 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
           <>
             <ViewToggle view={view} hrefFor={(v) => (v === 'liste' ? '/products?vue=liste' : '/products')} />
             {canSend && choices.length > 0 && <SendCatalogueButton choices={choices} variant="secondary" />}
+            <Link href="/stock" className="btn-secondary">
+              Stock véhicules (châssis)
+            </Link>
             {canCreate && (
               <Link href="/products/new" className="btn-primary">
                 <IconPlus className="h-4 w-4" /> Nouveau modèle

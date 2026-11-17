@@ -53,6 +53,9 @@ export interface AddVehicleUnitsInput {
   vins: string[];
   // Numéro moteur de chaque véhicule, dans le même ordre que vins (optionnel).
   engineNumbers?: (string | null)[];
+  // Couleur propre à chaque véhicule (import « châssis;moteur;couleur »),
+  // dans le même ordre que vins ; à défaut, la couleur commune.
+  colors?: (string | null)[];
   entryDate: string;
   color?: string;
   modelYear?: number | null;
@@ -75,10 +78,14 @@ export async function addVehicleUnits(
   if (!profile) return { inserted: 0, duplicates: [], error: 'Profil introuvable.' };
 
   const engineByVin = new Map<string, string | null>();
+  const colorByVin = new Map<string, string | null>();
   input.vins.forEach((v, i) => {
     const vin = v.trim().toUpperCase().replace(/\s+/g, '');
     const engine = input.engineNumbers?.[i]?.trim().toUpperCase().replace(/\s+/g, '') || null;
-    if (vin && !engineByVin.has(vin)) engineByVin.set(vin, engine);
+    if (vin && !engineByVin.has(vin)) {
+      engineByVin.set(vin, engine);
+      colorByVin.set(vin, input.colors?.[i]?.trim() || null);
+    }
   });
   const vins = Array.from(engineByVin.keys());
   if (!input.productId) return { inserted: 0, duplicates: [], error: 'Choisissez le modèle.' };
@@ -101,7 +108,7 @@ export async function addVehicleUnits(
         vin,
         engine_number: engineByVin.get(vin) ?? null,
         entry_date: input.entryDate,
-        color: input.color?.trim() || null,
+        color: colorByVin.get(vin) || input.color?.trim() || null,
         model_year: input.modelYear || null,
         location: input.location?.trim() || null,
       }))
@@ -117,6 +124,8 @@ export async function addVehicleUnits(
 
 export interface UpdateVehicleUnitInput {
   id: string;
+  // Modèle (products.id) : correction d'une saisie sur le mauvais modèle.
+  productId?: string;
   vin: string;
   engineNumber?: string;
   color?: string;
@@ -140,6 +149,8 @@ export async function updateVehicleUnit(input: UpdateVehicleUnitInput): Promise<
     location: input.location?.trim() || null,
     notes: input.notes?.trim() || null,
   };
+  if (input.productId) update.product_id = input.productId;
+  if (input.modelYear && (input.modelYear < 1990 || input.modelYear > 2100)) return { error: 'Année modèle invalide.' };
   if (input.status) update.status = input.status;
   if (input.engineNumber !== undefined) {
     update.engine_number = input.engineNumber.trim().toUpperCase().replace(/\s+/g, '') || null;
@@ -151,6 +162,24 @@ export async function updateVehicleUnit(input: UpdateVehicleUnitInput): Promise<
 
   revalidatePath('/stock');
   revalidatePath(`/stock/${input.id}`);
+  revalidatePath('/products');
+  return {};
+}
+
+// Retrait d'un véhicule saisi par erreur (fonction retirer_vehicule_stock,
+// migration 0057) : refusé s'il figure sur un document, s'il est réservé ou
+// vendu, ou sans le droit « modifier_stock ».
+export async function removeVehicleUnit(id: string): Promise<{ error?: string }> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('retirer_vehicule_stock', { p_unit_id: id });
+  if (error) {
+    if (/retirer_vehicule_stock/.test(error.message)) {
+      return { error: "La suppression n'est pas encore installée dans la base (migration 0057)." };
+    }
+    return { error: friendly(error.message) };
+  }
+  revalidatePath('/stock');
+  revalidatePath('/products');
   return {};
 }
 
