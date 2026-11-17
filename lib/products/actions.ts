@@ -57,7 +57,7 @@ export async function getProduct(id: string) {
   const { data, error } = await supabase
     .from('products')
     .select(
-      'id, designation, sku, reference, brand, model, description, sale_price, tax_rate, quantity_on_hand, stock_min, is_active'
+      'id, designation, sku, reference, brand, model, description, short_specs, sale_price, tax_rate, quantity_on_hand, stock_min, is_active'
     )
     .eq('id', id)
     .single();
@@ -72,6 +72,8 @@ export async function updateProduct(input: {
   brand?: string;
   model?: string;
   description?: string;
+  // Caractéristiques courtes imprimées sur la facture (migration 0050).
+  shortSpecs?: string;
   salePrice: number;
   taxRate: number;
   stockMin?: number;
@@ -91,6 +93,7 @@ export async function updateProduct(input: {
       brand: input.brand || null,
       model: input.model || null,
       description: input.description || null,
+      short_specs: input.shortSpecs?.trim() || null,
       sale_price: input.salePrice,
       tax_rate: input.taxRate,
       stock_min: input.stockMin ?? 0,

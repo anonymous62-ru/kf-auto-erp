@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { markReminderSent } from '@/lib/payments/actions';
 import { toWhatsappNumber } from '@/lib/utils/phone';
+import { formatDateFR, formatFCFA } from '@/lib/payments/schedule';
 
 export function RelanceButton({
   documentId,
@@ -10,19 +11,28 @@ export function RelanceButton({
   balanceDue,
   clientPhone,
   clientEmail,
+  installment,
 }: {
   documentId: string;
   documentNumber: string | null;
   balanceDue: number;
   clientPhone?: string | null;
   clientEmail?: string | null;
+  // Relance d'une échéance précise : le message cite son montant et sa date.
+  installment?: { seq: number; amount: number; dueDate: string; overdue: boolean };
 }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  const text = `Bonjour, un rappel concernant le document ${documentNumber ?? ''} : un solde de ${Math.round(
-    balanceDue
-  )} FCFA reste dû. Merci de bien vouloir régulariser. Cordialement, KF Auto.`;
+  const text = installment
+    ? `Bonjour, un rappel concernant la facture ${documentNumber ?? ''} : l'échéance n° ${installment.seq} de ${formatFCFA(
+        installment.amount
+      )} ${installment.overdue ? 'était attendue le' : 'est attendue le'} ${formatDateFR(installment.dueDate)}. ${
+        installment.overdue ? 'Merci de bien vouloir régulariser.' : 'Merci de prévoir ce règlement.'
+      } Solde total restant : ${formatFCFA(balanceDue)}. Cordialement, KF Auto.`
+    : `Bonjour, un rappel concernant le document ${documentNumber ?? ''} : un solde de ${Math.round(
+        balanceDue
+      )} FCFA reste dû. Merci de bien vouloir régulariser. Cordialement, KF Auto.`;
 
   async function afterSend() {
     setBusy(true);
@@ -38,6 +48,7 @@ export function RelanceButton({
 
   function handleWhatsApp(e: React.MouseEvent) {
     e.preventDefault();
+    if (busy) return;
     if (!clientPhone) {
       setMessage('Pas de numéro enregistré pour ce client.');
       return;
@@ -48,6 +59,7 @@ export function RelanceButton({
 
   function handleEmail(e: React.MouseEvent) {
     e.preventDefault();
+    if (busy) return;
     if (!clientEmail) {
       setMessage('Pas d\'email enregistré pour ce client.');
       return;
@@ -57,7 +69,7 @@ export function RelanceButton({
     // ouvrait un onglet vide au lieu de composer un email.
     const gmailComposeUrl =
       `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(clientEmail)}` +
-      `&su=${encodeURIComponent('Rappel de paiement')}&body=${encodeURIComponent(text)}`;
+      `&su=${encodeURIComponent(installment ? `Rappel d'échéance ${documentNumber ?? ''}`.trim() : 'Rappel de paiement')}&body=${encodeURIComponent(text)}`;
     window.open(gmailComposeUrl, '_blank');
     void afterSend();
   }

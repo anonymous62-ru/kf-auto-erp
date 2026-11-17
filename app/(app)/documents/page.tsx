@@ -5,6 +5,7 @@ import { formatAmount } from '@/components/dashboard/widgets';
 import { DOCUMENT_TYPE_LABELS, documentStatus, clientDisplayName } from '@/lib/documents/labels';
 import { INVOICE_EDITOR_ROLES } from '@/lib/documents/invoice-rules';
 import { SHOWROOM_ROLES } from '@/lib/users/roles';
+import { WORKFLOW_FILTERS, workflowDisplay } from '@/lib/documents/workflow-rules';
 import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PAGE_SIZE, Pagination, SortHeader, pageFromParam } from '@/components/ui/pagination';
@@ -45,11 +46,13 @@ type SP = {
   tri?: string;
   ordre?: string;
   page?: string;
+  etape?: string;
 };
 
 export default async function DocumentsPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
   const { type, q, du, au, commercial } = sp;
+  const etape = WORKFLOW_FILTERS.find((f) => f.key === sp.etape) ?? null;
   const statut = sp.statut ?? sp.status;
   const sort = sp.tri && SORTS[sp.tri] ? sp.tri : '';
   const dir: 'asc' | 'desc' = sp.ordre === 'asc' ? 'asc' : 'desc';
@@ -65,7 +68,7 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pr
   const role = profile?.role ?? '';
   const isShowroom = SHOWROOM_ROLES.includes(role);
   const canInvoice = INVOICE_EDITOR_ROLES.includes(role);
-  const seesAll = ['super_admin', 'administrateur', 'manager', 'comptable', 'receptionniste_sav', 'admin_ventes'].includes(role);
+  const seesAll = ['super_admin', 'administrateur', 'manager', 'comptable', 'receptionniste_sav', 'admin_ventes', 'responsable_commercial'].includes(role);
   const { data: commercials } = seesAll
     ? await supabase.from('profiles').select('id, full_name').eq('is_active', true).order('full_name')
     : { data: null };
@@ -73,7 +76,7 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pr
   let request = supabase
     .from('documents')
     .select(
-      'id, document_number, document_type, status, issue_date, due_date, total_amount, balance_due, clients(first_name, last_name, company_name)',
+      'id, document_number, document_type, status, issue_date, due_date, total_amount, balance_due, workflow_status, validated_at, clients(first_name, last_name, company_name)',
       { count: 'exact' }
     );
 
@@ -102,6 +105,12 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pr
       request = request.eq('document_type', 'avoir');
       break;
   }
+  // Étape du circuit de vente (proformas à valider, bons de commande à vérifier...).
+  if (etape) {
+    request = request.in('document_type', etape.type).eq('workflow_status', etape.step);
+    if (etape.validated === true) request = request.not('validated_at', 'is', null);
+    if (etape.validated === false) request = request.is('validated_at', null);
+  }
   if (q?.trim()) request = request.ilike('document_number', `%${q.trim()}%`);
   if (dateOk(du)) request = request.gte('issue_date', du as string);
   if (dateOk(au)) request = request.lte('issue_date', au as string);
@@ -122,6 +131,8 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pr
     due_date: string | null;
     total_amount: number;
     balance_due: number;
+    workflow_status: string | null;
+    validated_at: string | null;
     clients: ClientRel | ClientRel[] | null;
   }[];
   const total = count ?? documents.length;
@@ -135,6 +146,7 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pr
       du: dateOk(du) ? du : undefined,
       au: dateOk(au) ? au : undefined,
       commercial,
+      etape: etape?.key,
       tri: sort || undefined,
       ordre: sort ? dir : undefined,
       ...next,
@@ -144,7 +156,7 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pr
     return qs ? `/documents?${qs}` : '/documents';
   }
   const sortHref = (column: string, d: 'asc' | 'desc') => href({ tri: column, ordre: d, page: null });
-  const filtered = !!(type || statut || q || dateOk(du) || dateOk(au) || commercial);
+  const filtered = !!(type || statut || q || dateOk(du) || dateOk(au) || commercial || etape);
 
   return (
     <div>
@@ -195,6 +207,19 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pr
             ))}
           </select>
         </label>
+        {!isShowroom && (
+          <label className="block">
+            <span className="field-label">Étape</span>
+            <select name="etape" defaultValue={etape?.key ?? ''} className="input h-9 py-1.5 lg:w-44">
+              <option value="">Toutes</option>
+              {WORKFLOW_FILTERS.map((f) => (
+                <option key={f.key} value={f.key}>
+                  {f.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         {seesAll && commercials && commercials.length > 1 && (
           <label className="hidden sm:block">
             <span className="field-label">Commercial</span>
@@ -288,7 +313,13 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pr
                         {showDue ? formatAmount(due) : '-'}
                       </td>
                       <td>
-                        <span className={s.badge}>{s.label}</span>
+                        <span className="flex flex-wrap gap-1">
+                          <span className={s.badge}>{s.label}</span>
+                          {(() => {
+                            const w = workflowDisplay(d.document_type, d.workflow_status, d.validated_at);
+                            return w && d.status !== 'annule' && d.workflow_status !== 'emise' && w.label !== s.label ? <span className={w.badge}>{w.label}</span> : null;
+                          })()}
+                        </span>
                       </td>
                     </tr>
                   );
@@ -312,6 +343,12 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pr
                       <span className="shrink-0 text-right">
                         <span className="num block text-sm font-medium">{formatAmount(Number(d.total_amount))}</span>
                         <span className={`${s.badge} mt-1`}>{s.label}</span>
+                        {(() => {
+                          const w = workflowDisplay(d.document_type, d.workflow_status, d.validated_at);
+                          return w && d.status !== 'annule' && d.workflow_status !== 'emise' && w.label !== s.label ? (
+                            <span className={`${w.badge} mt-1 block`}>{w.label}</span>
+                          ) : null;
+                        })()}
                       </span>
                     </Link>
                   </li>

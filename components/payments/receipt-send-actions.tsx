@@ -7,7 +7,7 @@ import { toWhatsappNumber } from '@/lib/utils/phone';
 
 // Affiché juste après l'enregistrement d'un paiement (même partiel) : permet
 // d'envoyer immédiatement un reçu au client par WhatsApp ou email, avec le
-// montant payé et, s'il en reste, le solde restant clairement indiqué —
+// montant payé et, s'il en reste, le solde restant clairement indiqué :
 // reprend le même mécanisme (lien wa.me / Gmail + recordSending) que
 // SendActions, plutôt que de générer un nouveau document PDF de reçu.
 export function ReceiptSendActions({

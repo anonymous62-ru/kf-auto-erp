@@ -125,13 +125,6 @@ export async function updateOrganizationLogo(organizationId: string, logoUrl: st
   revalidatePath('/dashboard');
 }
 
-// Objectif mensuel de ventes (tableau de bord) : fixé par la direction.
-export async function setMonthlyTarget(amount: number): Promise<{ error?: string }> {
-  if (!Number.isFinite(amount) || amount < 0) return { error: 'Montant invalide.' };
-  const supabase = await createClient();
-  const { error } = await supabase.rpc('set_monthly_target', { p_amount: Math.round(amount) });
-  if (error) return { error: error.message };
-  revalidatePath('/dashboard');
-  revalidatePath('/settings/organisation');
-  return {};
-}
+// L'ancien objectif mensuel en F CFA (organizations.monthly_target, RPC
+// set_monthly_target) n'est plus réglé par l'application : les objectifs se
+// fixent en véhicules sur /objectifs (lib/objectives/actions.ts).

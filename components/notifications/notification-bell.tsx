@@ -11,6 +11,7 @@ import {
   type NotificationRow,
 } from '@/lib/notifications/client';
 import { IconBell } from '@/components/icons';
+import { notificationTypeLabel, safeInternalPath } from '@/lib/notifications/labels';
 
 function timeAgo(iso: string) {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -58,7 +59,14 @@ export function NotificationBell() {
       await markNotificationRead(n.id);
     }
     setOpen(false);
-    if (n.related_document_id) router.push(`/documents/${n.related_document_id}`);
+    // Lien direct vers l'élément à traiter (chemin interne uniquement), sinon
+    // le document lié.
+    const target = n.link
+      ? safeInternalPath(n.link, '/actions')
+      : n.related_document_id
+        ? `/documents/${n.related_document_id}`
+        : null;
+    if (target) router.push(target);
   }
 
   async function handleMarkAllRead() {
@@ -79,11 +87,16 @@ export function NotificationBell() {
           <div className="absolute right-0 mt-2 w-80 max-w-[90vw] bg-white text-gray-900 rounded-lg border border-gray-200 shadow-lg z-20 max-h-96 overflow-y-auto">
             <div className="flex items-center justify-between px-3 py-2 border-b">
               <span className="text-sm font-medium">Notifications</span>
-              {unreadCount > 0 && (
-                <button onClick={handleMarkAllRead} className="text-xs text-kf-navy underline">
-                  Tout marquer lu
-                </button>
-              )}
+              <span className="flex items-center gap-3">
+                <a href="/actions" onClick={() => setOpen(false)} className="text-xs text-kf-navy underline">
+                  Mes actions
+                </a>
+                {unreadCount > 0 && (
+                  <button onClick={handleMarkAllRead} className="text-xs text-kf-navy underline">
+                    Tout marquer lu
+                  </button>
+                )}
+              </span>
             </div>
             {notifications.length === 0 ? (
               <p className="text-sm text-gray-400 px-3 py-6 text-center">Aucune notification</p>
@@ -98,6 +111,11 @@ export function NotificationBell() {
                     <div className="flex items-start gap-2">
                       {!n.is_read && <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-kf-red flex-shrink-0" />}
                       <div className="flex-1">
+                        {notificationTypeLabel(n.type) && (
+                          <p className={`text-[10.5px] font-medium uppercase tracking-wide ${n.type === 'escalade' ? 'text-kf-red' : 'text-gray-400'}`}>
+                            {notificationTypeLabel(n.type)}
+                          </p>
+                        )}
                         <p className="text-sm font-medium">{n.title}</p>
                         {n.message && <p className="text-xs text-gray-500">{n.message}</p>}
                         <p className="text-xs text-gray-400 mt-0.5">{timeAgo(n.created_at)}</p>

@@ -8,6 +8,7 @@ import { MANUAL_STATUSES, VEHICLE_STATUS, VEHICLE_STATUS_ORDER, type VehicleStat
 type Unit = {
   id: string;
   vin: string;
+  engine_number: string | null;
   color: string | null;
   model_year: number | null;
   entry_date: string;
@@ -23,6 +24,7 @@ export function VehicleUnitEditor({ unit, isDirection }: { unit: Unit; isDirecti
   const router = useRouter();
   const [form, setForm] = useState({
     vin: unit.vin,
+    engineNumber: unit.engine_number ?? '',
     color: unit.color ?? '',
     modelYear: unit.model_year ? String(unit.model_year) : '',
     entryDate: unit.entry_date,
@@ -54,6 +56,7 @@ export function VehicleUnitEditor({ unit, isDirection }: { unit: Unit; isDirecti
       const r = await updateVehicleUnit({
         id: unit.id,
         vin: form.vin,
+        engineNumber: form.engineNumber,
         color: form.color,
         modelYear: form.modelYear ? Number(form.modelYear) : null,
         entryDate: form.entryDate,
@@ -101,10 +104,16 @@ export function VehicleUnitEditor({ unit, isDirection }: { unit: Unit; isDirecti
 
       <div className="card p-4 space-y-3">
         <p className="text-sm font-semibold text-gray-900">Informations</p>
-        <label className="block text-xs text-gray-500">
-          Numéro de châssis
-          <input value={form.vin} onChange={set('vin')} className="input mt-1 font-mono" />
-        </label>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="block text-xs text-gray-500">
+            Numéro de châssis
+            <input value={form.vin} onChange={set('vin')} className="input mt-1 font-mono" />
+          </label>
+          <label className="block text-xs text-gray-500">
+            Numéro moteur
+            <input value={form.engineNumber} onChange={set('engineNumber')} className="input mt-1 font-mono" />
+          </label>
+        </div>
         <div className="grid gap-3 sm:grid-cols-3">
           <label className="block text-xs text-gray-500">
             Date d&apos;entrée en stock

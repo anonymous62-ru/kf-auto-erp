@@ -319,24 +319,17 @@ export async function invoiceRepairOrder(repairOrderId: string) {
   const taxAmount = subtotal * (taxRate / 100);
   const totalAmount = subtotal + taxAmount;
 
-  const year = new Date().getFullYear();
   const issueDate = new Date();
   const dueDate = new Date(issueDate);
   dueDate.setMonth(dueDate.getMonth() + 1);
 
-  const { data: documentNumber, error: numberError } = await supabase.rpc('get_next_document_number', {
-    p_organization_id: organization_id,
-    p_document_type: 'facture',
-    p_year: year,
-  });
-  if (numberError) throw new Error(numberError.message);
-
+  // Le numéro officiel de facture est attribué par la base à l'insertion
+  // (trigger assign_document_number, migration 0037).
   const { data: document, error: documentError } = await supabase
     .from('documents')
     .insert({
       organization_id,
       document_type: 'facture',
-      document_number: documentNumber,
       status: 'brouillon',
       client_id: order.client_id,
       commercial_id: userId,

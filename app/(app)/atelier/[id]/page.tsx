@@ -3,6 +3,8 @@ import { getPartOptions } from '@/lib/pieces/actions';
 import { RepairOrderItems } from '@/components/atelier/repair-order-items';
 import { RepairOrderActions } from '@/components/atelier/repair-order-actions';
 import { DiagnosticForm } from '@/components/atelier/diagnostic-form';
+import { InspectionLinks } from '@/components/atelier/inspection-links';
+import { getInspections } from '@/lib/atelier/inspection-actions';
 import { formatCFA } from '@/lib/documents/calculations';
 import Link from 'next/link';
 import { IconChevronRight } from '@/components/icons';
@@ -18,7 +20,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 export default async function RepairOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [{ order, items }, parts] = await Promise.all([getRepairOrder(id), getPartOptions()]);
+  const [{ order, items }, parts, inspections] = await Promise.all([getRepairOrder(id), getPartOptions(), getInspections(id)]);
 
   const client = order.clients as any;
   const clientName = client ? client.company_name || [client.first_name, client.last_name].filter(Boolean).join(' ') : null;
@@ -49,6 +51,12 @@ export default async function RepairOrderDetailPage({ params }: { params: Promis
         </p>
         <p className="text-sm font-semibold pt-1">Total devis : {formatCFA(Number(order.quote_total))}</p>
       </div>
+
+      <InspectionLinks
+        repairOrderId={order.id}
+        reception={inspections.reception}
+        restitution={inspections.restitution}
+      />
 
       <RepairOrderActions
         repairOrderId={order.id}

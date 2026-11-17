@@ -31,6 +31,10 @@ async function requireManagerAccess() {
   return profile;
 }
 
+// Seuls les postes de vente sont suivis ici (demande du 17/10/2026) : la
+// direction, l'administration et l'atelier n'y figurent pas.
+const SALES_ROLES = ['commercial', 'vendeur_showroom', 'responsable_showroom'];
+
 export interface TeamMemberOverview {
   id: string;
   full_name: string | null;
@@ -53,6 +57,8 @@ export async function getTeamOverview(): Promise<TeamMemberOverview[]> {
     .from('profiles')
     .select('id, full_name, role, is_active')
     .eq('organization_id', profile.organization_id)
+    .in('role', SALES_ROLES)
+    .order('is_active', { ascending: false })
     .order('full_name');
   if (membersError) throw new Error(membersError.message);
   if (!members || members.length === 0) return [];

@@ -37,10 +37,17 @@ export async function middleware(request: NextRequest) {
     path.startsWith('/login') ||
     path.startsWith('/verify') ||
     path.startsWith('/api/public/') ||
+    // envoi des e-mails en file : protégé par son propre secret (CRON_SECRET)
+    path === '/api/cron/notifications' ||
     /^\/c\/[0-9a-f-]{36}$/i.test(path) ||
     /^\/api\/products\/[0-9a-f-]{36}\/pdf$/i.test(path);
+  // Page demandée (lien d'un e-mail de notification...) : retrouvée après la
+  // connexion grâce au paramètre « next » (chemin interne uniquement).
+  const returnTo = path !== '/' && !path.startsWith('/api/') ? path + request.nextUrl.search : null;
   if (!user && !isPublicRoute) {
-    return NextResponse.redirect(new URL('/login', request.url));
+    const loginUrl = new URL('/login', request.url);
+    if (returnTo) loginUrl.searchParams.set('next', returnTo);
+    return NextResponse.redirect(loginUrl);
   }
 
   // 2FA : si l'utilisateur a déjà activé la vérification en deux étapes,
@@ -52,7 +59,9 @@ export async function middleware(request: NextRequest) {
   if (user && !isPublicRoute && !isMfaChallengeRoute) {
     const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
     if (aal && aal.nextLevel === 'aal2' && aal.currentLevel !== aal.nextLevel) {
-      return NextResponse.redirect(new URL('/mfa-challenge', request.url));
+      const mfaUrl = new URL('/mfa-challenge', request.url);
+      if (returnTo) mfaUrl.searchParams.set('next', returnTo);
+      return NextResponse.redirect(mfaUrl);
     }
   }
 

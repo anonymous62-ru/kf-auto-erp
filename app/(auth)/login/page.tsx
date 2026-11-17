@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { AuthLayout } from '@/components/auth/auth-layout';
 import { IconMail, IconLock, IconEye, IconEyeOff, IconAlert } from '@/components/icons';
+import { safeInternalPath } from '@/lib/notifications/labels';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -43,7 +44,10 @@ export default function LoginPage() {
       return;
     }
     // On laisse le bouton en état "connexion" pendant la redirection.
-    router.push('/dashboard');
+    // Retour vers la page demandée avant connexion (lien d'un e-mail),
+    // chemin interne uniquement : pas de redirection ouverte.
+    const next = safeInternalPath(new URLSearchParams(window.location.search).get('next'), '/dashboard');
+    router.push(next.startsWith('/login') ? '/dashboard' : next);
     router.refresh();
   }
 

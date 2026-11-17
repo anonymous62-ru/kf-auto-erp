@@ -6,6 +6,7 @@ import { documentTypeLabel } from '@/lib/documents/labels';
 import { can, getCurrentRole } from '@/lib/permissions';
 import { DIRECTION_ROLES } from '@/lib/users/roles';
 import { VehicleUnitEditor } from '@/components/stock/vehicle-unit-editor';
+import { createClient } from '@/lib/supabase/server';
 
 export default async function VehicleUnitPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -13,6 +14,11 @@ export default async function VehicleUnitPage({ params }: { params: Promise<{ id
   const { units } = await listVehicleUnits();
   const unit = units.find((u) => u.id === id);
   if (!unit) notFound();
+
+  // Numéro moteur (migration 0043), lu à part : list_vehicle_units ne le renvoie pas.
+  const supabase = await createClient();
+  const { data: extra } = await supabase.from('vehicle_units').select('engine_number').eq('id', id).maybeSingle();
+  const engineNumber = (extra?.engine_number as string | null | undefined) ?? null;
 
   const st = vehicleStatus(unit.status);
   const days = daysInStock(unit.entry_date, unit.status === 'vendu' ? unit.sold_at : null);
@@ -25,6 +31,7 @@ export default async function VehicleUnitPage({ params }: { params: Promise<{ id
       <div className="card p-4">
         <p className="text-xs text-gray-500">{unit.model}</p>
         <h1 className="font-mono text-lg font-semibold text-gray-900">{unit.vin}</h1>
+        <p className="font-mono text-xs text-gray-500">Moteur : {engineNumber ?? 'non renseigné'}</p>
         <p className="mt-2 flex flex-wrap items-center gap-2 text-sm">
           <span className={st.badge}>{st.label}</span>
           <span className={ageTone(days)}>
@@ -53,6 +60,7 @@ export default async function VehicleUnitPage({ params }: { params: Promise<{ id
           unit={{
             id: unit.id,
             vin: unit.vin,
+            engine_number: engineNumber,
             color: unit.color,
             model_year: unit.model_year,
             entry_date: unit.entry_date,

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { SignaturePad } from '@/components/documents/signature-pad';
+import { canSendDocument } from '@/lib/documents/workflow-rules';
 
 export default function SignPage() {
   const params = useParams<{ id: string }>();
@@ -12,14 +13,17 @@ export default function SignPage() {
 
   const [step, setStep] = useState<'commercial' | 'client' | 'done'>('commercial');
   const [loading, setLoading] = useState(true);
+  // Proforma : le client signe seulement après validation du N+1 (0044).
+  const [clientBlocked, setClientBlocked] = useState(false);
 
   useEffect(() => {
     async function load() {
       const { data } = await supabase
         .from('documents')
-        .select('commercial_signature_url, client_signature_url')
+        .select('commercial_signature_url, client_signature_url, document_type, workflow_status')
         .eq('id', params.id)
         .single();
+      setClientBlocked(!!data && !canSendDocument(data.document_type, data.workflow_status));
       if (data?.client_signature_url) setStep('done');
       else if (data?.commercial_signature_url) setStep('client');
       else setStep('commercial');
@@ -38,6 +42,19 @@ export default function SignPage() {
           onClick={() => router.push(`/documents/${params.id}`)}
           className="w-full bg-kf-navy text-white rounded-md py-3 text-sm"
         >
+          Voir le document
+        </button>
+      </div>
+    );
+  }
+
+  if (step === 'client' && clientBlocked) {
+    return (
+      <div className="space-y-3">
+        <p className="text-sm text-gray-700">
+          Signature commerciale enregistrée. Le client pourra signer une fois la proforma validée par le responsable commercial.
+        </p>
+        <button onClick={() => router.push(`/documents/${params.id}`)} className="btn-primary w-full">
           Voir le document
         </button>
       </div>

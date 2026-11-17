@@ -1,8 +1,10 @@
 import Link from 'next/link';
 import { PendingDocumentsWidget } from '@/components/offline/pending-documents-widget';
 import { MfaNudgeBanner } from '@/components/security/mfa-nudge-banner';
+import { PendingActionsCounter } from '@/components/actions/pending-actions-counter';
 import { TargetGauge, millions } from '@/components/dashboard/gauge';
 import { Fleet } from '@/components/dashboard/fleet';
+import { TeamObjectives } from '@/components/dashboard/team-objectives';
 import { cockpitSummary, loadCockpit } from '@/lib/dashboard/cockpit';
 
 // Tableau de bord « cockpit » (maquette du 13/10/2026), branché sur les
@@ -61,8 +63,8 @@ function Readout({
 
 const STEPS = ['Proforma', 'Commande', 'Facture', 'Payé'];
 
-export default async function DashboardPage() {
-  const d = await loadCockpit();
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ periode?: string }> }) {
+  const [d, { periode }] = await Promise.all([loadCockpit(), searchParams]);
   const collectedDelta = variation(d.collected, d.collectedPrev);
   const leadsDelta = variation(d.leadsMonth, d.leadsPrev);
   const TONE: Record<string, string> = { r: 'text-rouge', a: 'text-[#A6620A]', n: 'text-encre', g: 'text-encre-3' };
@@ -97,14 +99,14 @@ export default async function DashboardPage() {
                 </Link>
               )}
               {d.canSetTarget && d.target === 0 && (
-                <Link href="/settings/organisation" className="btn border-nuit-3 bg-transparent text-white hover:bg-nuit-2">
-                  Fixer l&apos;objectif
+                <Link href="/objectifs" className="btn border-nuit-3 bg-transparent text-white hover:bg-nuit-2">
+                  Fixer les objectifs
                 </Link>
               )}
             </div>
           </div>
 
-          <TargetGauge invoiced={d.invoiced} target={d.target} monthName={d.monthName} />
+          <TargetGauge achieved={d.achieved} target={d.target} monthName={d.monthName} personal={d.targetScope === 'me'} />
 
           <div className="grid w-full gap-2.5 md:col-span-2 md:grid-cols-3 xl:col-span-1 xl:max-w-[330px] xl:grid-cols-1 xl:justify-self-end">
             <Readout
@@ -158,7 +160,10 @@ export default async function DashboardPage() {
 
       <div className="mx-auto grid max-w-[1400px] grid-cols-[minmax(0,1fr)] gap-[22px] px-4 pb-11 pt-5 lg:px-8 lg:pt-7">
         {d.role && <MfaNudgeBanner role={d.role} />}
+        <PendingActionsCounter />
         {d.commercialSide && <PendingDocumentsWidget />}
+
+        {d.commercialSide || d.canSetTarget ? <TeamObjectives manage={d.canSetTarget} periode={periode} /> : null}
 
         <Fleet vehicles={d.fleet} />
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { renderDocumentPdf } from '@/lib/documents/pdf/render-document-pdf';
+import { canSendDocument } from '@/lib/documents/workflow-rules';
 
 // Lien envoyé au client final (WhatsApp / Email), qui n'a pas de compte :
 // accès uniquement par le jeton aléatoire propre au document
@@ -15,6 +16,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
       return NextResponse.json({ error: 'Lien invalide' }, { status: 404 });
     }
     const admin = createAdminClient();
+    // Circuit de vente (0044) : le lien client ne fonctionne qu'après validation.
+    const { data: wf } = await admin
+      .from('documents')
+      .select('document_type, workflow_status')
+      .eq('public_token', token)
+      .maybeSingle();
+    if (wf && !canSendDocument(wf.document_type, wf.workflow_status)) {
+      return NextResponse.json({ error: 'Document pas encore disponible' }, { status: 404 });
+    }
     const result = await renderDocumentPdf(admin, { column: 'public_token', value: token }, req.nextUrl.origin);
     if (!result) return NextResponse.json({ error: 'Document introuvable ou lien expiré' }, { status: 404 });
 

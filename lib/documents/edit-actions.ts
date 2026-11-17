@@ -74,7 +74,7 @@ export async function getDocumentForEdit(documentId: string): Promise<DocumentFo
   const { data: doc } = await supabase
     .from('documents')
     .select(
-      `id, document_type, document_number, status, commercial_id, amount_paid, notes, client_id,
+      `id, document_type, document_number, status, commercial_id, amount_paid, notes, client_id, workflow_status,
        clients (id, first_name, last_name, company_name, phone, email, address)`
     )
     .eq('id', documentId)
@@ -107,9 +107,29 @@ export async function getDocumentForEdit(documentId: string): Promise<DocumentFo
 
   let reason: string | null = null;
   const isManager = MANAGER_ROLES.includes(role);
-  const invoiceReason = invoiceEditBlockReason(doc.document_type, doc.status, role, Number(doc.amount_paid ?? 0));
+  const invoiceReason = invoiceEditBlockReason(
+    doc.document_type,
+    doc.status,
+    role,
+    Number(doc.amount_paid ?? 0),
+    doc.document_type === 'facture' && doc.workflow_status === 'emise'
+      ? (await supabase.rpc('is_issued_order_invoice', { p_doc: doc.id })).data === true
+        ? 'emise'
+        : null
+      : null
+  );
+  const step = (doc.workflow_status as string | null) ?? null;
+  const isProforma = doc.document_type === 'devis' || doc.document_type === 'proforma';
   if (invoiceReason) {
     reason = invoiceReason;
+  } else if (isProforma && step && !['brouillon', 'refusee'].includes(step)) {
+    // Circuit de vente (0044) : contenu figé après soumission.
+    reason =
+      step === 'en_attente_validation'
+        ? 'Cette proforma attend la validation du responsable commercial : elle ne peut plus être modifiée. Pour la corriger, il doit la refuser avec un motif.'
+        : 'Cette proforma est validée : elle ne peut plus être modifiée.';
+  } else if (doc.document_type === 'commande' && ['facture_en_attente_validation', 'facture'].includes(step ?? '')) {
+    reason = 'La facture de ce bon de commande est en validation ou émise : il ne peut plus être modifié.';
   } else if (Number(doc.amount_paid ?? 0) > 0 || (paymentCount ?? 0) > 0) {
     reason =
       "Ce document a déjà un paiement enregistré : il ne peut pas être modifié. Un administrateur doit d'abord supprimer le paiement ou le document.";

@@ -3,6 +3,13 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { listTotpFactors, challengeAndVerifyLogin } from '@/lib/auth/mfa';
+import { safeInternalPath } from '@/lib/notifications/labels';
+
+// Page demandée avant la vérification (lien d'un e-mail), chemin interne uniquement.
+function returnPath() {
+  const next = safeInternalPath(new URLSearchParams(window.location.search).get('next'), '/dashboard');
+  return next.startsWith('/login') || next.startsWith('/mfa-challenge') ? '/dashboard' : next;
+}
 
 export function MfaChallengeForm() {
   const router = useRouter();
@@ -19,7 +26,7 @@ export function MfaChallengeForm() {
         const verified = factors.find((f) => f.status === 'verified');
         if (!verified) {
           // Pas de facteur vérifié : rien à demander, on continue normalement.
-          router.replace('/dashboard');
+          router.replace(returnPath());
           return;
         }
         setFactorId(verified.id);
@@ -38,7 +45,7 @@ export function MfaChallengeForm() {
     setError(null);
     try {
       await challengeAndVerifyLogin(factorId, code);
-      router.replace('/dashboard');
+      router.replace(returnPath());
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Code invalide, réessaie.');

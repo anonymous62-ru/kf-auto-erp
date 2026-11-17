@@ -5,6 +5,7 @@ export type UserRole =
   | 'super_admin'
   | 'administrateur'
   | 'manager'
+  | 'responsable_commercial'
   | 'comptable'
   | 'admin_ventes'
   | 'commercial'
@@ -21,6 +22,7 @@ const ROLE_LABELS: Record<UserRole, string> = {
   super_admin: 'Super Admin',
   administrateur: 'Administrateur (direction)',
   manager: 'Manager',
+  responsable_commercial: 'Responsable commercial (valide les proformas)',
   comptable: 'Comptable (caissière/comptabilité)',
   admin_ventes: 'Administratrice des ventes',
   commercial: 'Commercial',
@@ -42,6 +44,7 @@ export const ALL_ROLES: UserRole[] = [
   'super_admin',
   'administrateur',
   'manager',
+  'responsable_commercial',
   'comptable',
   'admin_ventes',
   'commercial',
@@ -93,6 +96,7 @@ export const TEAM_SALES_ROLES = [
   'admin_ventes',
   'commercial',
   'chef_service',
+  'responsable_commercial',
 ];
 // Rôles autorisés à faire passer directement un contact en client (clients
 // déjà acquis, par exemple à l'atelier) ; les autres attendent le premier versement.

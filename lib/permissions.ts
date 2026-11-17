@@ -9,11 +9,15 @@ export const CAN = {
   repairOrderCreate: ['super_admin', 'administrateur', 'manager', 'receptionniste_sav', 'chef_atelier', 'responsable_showroom'],
   appointmentWrite: ['super_admin', 'administrateur', 'manager', 'commercial', 'receptionniste_sav', 'chef_atelier', 'responsable_showroom'],
   warrantyWrite: ['super_admin', 'administrateur', 'manager', 'receptionniste_sav', 'chef_atelier', 'comptable', 'responsable_showroom'],
-  // Circuit de vente (09/10) : seule l'administration des ventes facture.
+  // Circuit de vente : tous les rôles non commerciaux facturent (17/11).
   // Stock véhicules par châssis (migration 0033).
   vehicleUnitWrite: ['super_admin', 'administrateur', 'manager', 'responsable_showroom', 'admin_ventes'],
-  invoice: ['super_admin', 'administrateur', 'manager', 'admin_ventes'],
-  teamSales: ['super_admin', 'administrateur', 'manager', 'comptable', 'receptionniste_sav', 'admin_ventes', 'commercial', 'chef_service'],
+  invoice: ['super_admin', 'administrateur', 'manager', 'responsable_commercial', 'admin_ventes', 'comptable'],
+  teamSales: ['super_admin', 'administrateur', 'manager', 'comptable', 'receptionniste_sav', 'admin_ventes', 'commercial', 'chef_service', 'responsable_commercial'],
+  // Circuit de vente (0044).
+  validateProforma: ['super_admin', 'administrateur', 'manager', 'responsable_commercial', 'admin_ventes', 'comptable'],
+  checkCommande: ['super_admin', 'administrateur', 'manager', 'responsable_commercial', 'admin_ventes', 'comptable'],
+  validateInvoice: ['super_admin', 'administrateur', 'manager', 'responsable_commercial', 'admin_ventes', 'comptable'],
   validateUserRequests: ['super_admin', 'administrateur', 'manager'],
   directClient: ['super_admin', 'administrateur', 'manager', 'admin_ventes', 'comptable', 'receptionniste_sav', 'chef_atelier'],
 } as const;

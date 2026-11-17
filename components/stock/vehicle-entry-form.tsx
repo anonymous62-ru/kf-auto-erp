@@ -25,18 +25,17 @@ export function VehicleEntryForm({
   const [result, setResult] = useState<{ inserted: number; duplicates: string[] } | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const vins = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          vinText
-            .split(/[\n,;]+/)
-            .map((v) => v.trim().toUpperCase().replace(/\s+/g, ''))
-            .filter(Boolean)
-        )
-      ),
-    [vinText]
-  );
+  // Un véhicule par ligne : le châssis, puis éventuellement le numéro moteur
+  // (séparés par un espace, une tabulation ou un point-virgule).
+  const entries = useMemo(() => {
+    const seen = new Map<string, string | null>();
+    for (const line of vinText.split(/[\n,]+/)) {
+      const [vin, engine] = line.trim().toUpperCase().split(/[\s;]+/).filter(Boolean);
+      if (vin && !seen.has(vin)) seen.set(vin, engine ?? null);
+    }
+    return Array.from(seen, ([vin, engineNumber]) => ({ vin, engineNumber }));
+  }, [vinText]);
+  const vins = entries.map((e) => e.vin);
 
   function submit() {
     if (isPending) return;
@@ -46,6 +45,7 @@ export function VehicleEntryForm({
       const r = await addVehicleUnits({
         productId,
         vins,
+        engineNumbers: entries.map((e) => e.engineNumber),
         entryDate,
         color,
         modelYear: modelYear ? Number(modelYear) : null,
@@ -98,12 +98,12 @@ export function VehicleEntryForm({
         <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Showroom Sagbado, parc..." className="input mt-1" />
       </label>
       <label className="block text-xs text-gray-500">
-        Numéros de châssis (un par ligne)
+        Numéros de châssis et numéros moteur (un véhicule par ligne : châssis puis moteur, séparés par un espace)
         <textarea
           value={vinText}
           onChange={(e) => setVinText(e.target.value)}
           rows={6}
-          placeholder={'LVVDB11B0RD000001\nLVVDB11B0RD000002'}
+          placeholder={'LVVDB11B0RD000001 SQRF4J16A00001\nLVVDB11B0RD000002 SQRF4J16A00002'}
           className="input mt-1 font-mono"
         />
       </label>

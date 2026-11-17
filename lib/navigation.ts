@@ -48,6 +48,7 @@ const COMMERCIAL_ROLES = [
   'commercial',
   'chef_service',
   'receptionniste_sav',
+  'responsable_commercial',
 ];
 const ADMIN_ROLES = ['super_admin', 'administrateur'];
 const DIRECTION_ROLES = ['super_admin', 'administrateur', 'manager'];
@@ -61,9 +62,10 @@ const TEAM_SALES_ROLES = [
   'admin_ventes',
   'commercial',
   'chef_service',
+  'responsable_commercial',
 ];
 // Affaires et agenda : commerciaux, leurs chefs, l'administration des ventes et la direction.
-const AFFAIRES_ROLES = ['super_admin', 'administrateur', 'manager', 'admin_ventes', 'commercial', 'chef_service'];
+const AFFAIRES_ROLES = ['super_admin', 'administrateur', 'manager', 'admin_ventes', 'commercial', 'chef_service', 'responsable_commercial'];
 // Rôles qui dirigent un département et peuvent demander une inscription.
 const REQUESTER_ROLES = ['chef_atelier', 'responsable_showroom', 'chef_service'];
 
@@ -79,9 +81,29 @@ export function isShowroomRole(role: string | null | undefined) {
   return !!role && SHOWROOM_ROLES.includes(role);
 }
 
+// Raccourcis du circuit de vente : tous les rôles non commerciaux valident
+// (précision du 17/11). Les notifications « Mes actions » ciblent toujours en
+// priorité le responsable commercial, l'ADV puis la direction.
+const VALIDATOR_ROLES = ['super_admin', 'administrateur', 'manager', 'responsable_commercial', 'admin_ventes', 'comptable'];
+
+function circuitShortcuts(role: string | null | undefined): NavItem[] {
+  if (!role || !VALIDATOR_ROLES.includes(role)) return [];
+  return [
+    { href: '/documents?etape=proforma_a_valider', label: 'Proformas à valider', icon: 'document' },
+    { href: '/documents?etape=commande_a_verifier', label: 'Bons de commande à vérifier', icon: 'document' },
+    { href: '/documents?etape=facture_a_valider', label: 'Factures à valider', icon: 'document' },
+  ];
+}
+
 export function getNavigation(role: string | null | undefined): NavGroup[] {
   const groups: NavGroup[] = [
-    { label: '', items: [{ href: '/dashboard', label: 'Tableau de bord', icon: 'gauge' }] },
+    {
+      label: '',
+      items: [
+        { href: '/dashboard', label: 'Tableau de bord', icon: 'gauge' },
+        { href: '/actions', label: 'Mes actions', icon: 'alert' },
+      ],
+    },
   ];
 
   if (canSeeCommercial(role)) {
@@ -89,6 +111,8 @@ export function getNavigation(role: string | null | undefined): NavGroup[] {
     if (role && AFFAIRES_ROLES.includes(role)) items.push({ href: '/affaires', label: 'Affaires', icon: 'cash' });
     items.push(
       { href: '/documents', label: 'Proformas et factures', icon: 'document' },
+      // Circuit de vente (0044) : raccourci vers les documents à traiter selon le rôle.
+      ...circuitShortcuts(role),
       { href: '/clients', label: 'Clients', icon: 'users' }
     );
     if (role && AFFAIRES_ROLES.includes(role)) items.push({ href: '/agenda', label: 'Agenda', icon: 'calendar' });
@@ -133,6 +157,14 @@ export function getNavigation(role: string | null | undefined): NavGroup[] {
     });
   }
 
+  // Objectifs commerciaux en véhicules (étape 7) : direction et responsable commercial.
+  if (role && ['super_admin', 'administrateur', 'manager', 'responsable_commercial'].includes(role)) {
+    const objectives: NavItem = { href: '/objectifs', label: 'Objectifs commerciaux', icon: 'target' };
+    const direction = groups.find((g) => g.label === 'Direction');
+    if (direction) direction.items.unshift(objectives);
+    else groups.push({ label: 'Direction', items: [objectives] });
+  }
+
   groups.push({
     label: 'Parc et atelier',
     items: [
@@ -161,15 +193,17 @@ export function getNavigation(role: string | null | undefined): NavGroup[] {
       { href: '/audit', label: "Journal d'audit", icon: 'archive' },
       { href: '/settings/organisation', label: 'Organisation', icon: 'building' }
     );
-  } else if (role === 'manager') {
-    // Le manager règle l'objectif mensuel (page Organisation, partie objectif).
-    adminItems.push({ href: '/settings/organisation', label: 'Objectif mensuel', icon: 'building' });
   }
+  // Le manager fixait l'objectif en F CFA sur la page Organisation : il passe
+  // désormais par « Objectifs commerciaux » (groupe Direction).
   if (adminItems.length > 0) groups.push({ label: 'Administration', items: adminItems });
 
   groups.push({
     label: 'Compte',
-    items: [{ href: '/settings/security', label: 'Sécurité (2FA)', icon: 'lock' }],
+    items: [
+      { href: '/settings/security', label: 'Sécurité (2FA)', icon: 'lock' },
+      { href: '/settings/notifications', label: 'Notifications', icon: 'calendar' },
+    ],
   });
 
   return groups;

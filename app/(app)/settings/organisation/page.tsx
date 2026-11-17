@@ -17,8 +17,9 @@ export default async function OrganizationSettingsPage() {
     .eq('id', user?.id ?? '')
     .single();
 
-  // La direction (dont le manager) règle l'objectif mensuel ; seuls
-  // l'administrateur et le super admin modifient le reste de la fiche.
+  // La direction (dont le manager) accède à la page (lien vers les objectifs
+  // commerciaux) ; seuls l'administrateur et le super admin modifient le
+  // reste de la fiche.
   if (!profile || !['super_admin', 'administrateur', 'manager'].includes(profile.role)) {
     redirect('/dashboard');
   }
@@ -41,7 +42,7 @@ export default async function OrganizationSettingsPage() {
   return (
     <div className="space-y-4">
       <h1 className="page-title">Organisation</h1>
-      <MonthlyTargetForm initial={Number(organization.monthly_target ?? 0)} />
+      <MonthlyTargetForm />
       {profile.role !== 'manager' && (
         <>
           <OrganizationLogoUpload

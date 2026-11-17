@@ -62,9 +62,12 @@ export type CockpitData = {
   role: string;
   commercialSide: boolean;
   canSetTarget: boolean;
+  // Objectif du mois en nombre de véhicules (migration 0048).
   target: number;
-  invoiced: number;
+  achieved: number;
   targetPct: number | null;
+  // 'org' : toute l'équipe ; 'me' : objectif personnel du commercial connecté.
+  targetScope: 'org' | 'me';
   workingDaysLeft: number;
   ordersToInvoice: number;
   collected: number;
@@ -206,7 +209,7 @@ export async function loadCockpit(): Promise<CockpitData> {
     partsRes,
     agendaRes,
   ] = await Promise.all([
-    supabase.rpc('monthly_target_progress'),
+    supabase.rpc('objectives_month_total'),
     supabase.from('documents').select('id', { count: 'exact', head: true }).eq('document_type', 'commande').not('status', 'in', '(accepte,annule)'),
     supabase.from('payments').select('amount, payment_date').gte('payment_date', prev.start),
     supabase
@@ -241,11 +244,15 @@ export async function loadCockpit(): Promise<CockpitData> {
     getAgenda(today, today, seesAllAgenda ? null : user?.id ?? null),
   ]);
 
-  // Objectif (toute l'organisation).
-  const progress = (progressRes.data ?? {}) as { target?: number; invoiced?: number };
-  const target = Number(progress.target ?? 0);
-  const invoiced = Number(progress.invoiced ?? 0);
-  const targetPct = target > 0 ? Math.round((invoiced / target) * 100) : null;
+  // Objectif du mois en véhicules : toute l'équipe pour la direction et le
+  // responsable commercial ; pour un commercial qui a un objectif personnel,
+  // le sien, sinon celui de l'équipe.
+  const progress = (progressRes.data ?? {}) as { org_target?: number; org_achieved?: number; my_target?: number; my_achieved?: number };
+  const canSetTarget = ['super_admin', 'administrateur', 'manager', 'responsable_commercial'].includes(role);
+  const targetScope: 'org' | 'me' = !canSetTarget && Number(progress.my_target ?? 0) > 0 ? 'me' : 'org';
+  const target = Number((targetScope === 'me' ? progress.my_target : progress.org_target) ?? 0);
+  const achieved = Number((targetScope === 'me' ? progress.my_achieved : progress.org_achieved) ?? 0);
+  const targetPct = target > 0 ? Math.round((achieved / target) * 100) : null;
 
   // Encaissements.
   const payments = (paymentsRes.data ?? []) as { amount: number; payment_date: string }[];
@@ -420,10 +427,11 @@ export async function loadCockpit(): Promise<CockpitData> {
     prevMonthName: MONTHS[(m + 10) % 12],
     role,
     commercialSide,
-    canSetTarget: ['super_admin', 'administrateur', 'manager'].includes(role),
+    canSetTarget,
     target,
-    invoiced,
+    achieved,
     targetPct,
+    targetScope,
     workingDaysLeft: workingDaysLeft(today),
     ordersToInvoice,
     collected,
@@ -447,10 +455,18 @@ const NUMBERS = ['Zéro', 'Une', 'Deux', 'Trois', 'Quatre', 'Cinq', 'Six', 'Sept
 export function cockpitSummary(d: CockpitData) {
   const month = d.monthName.charAt(0).toUpperCase() + d.monthName.slice(1);
   const days = `${d.workingDaysLeft} jour${d.workingDaysLeft > 1 ? 's' : ''} ouvré${d.workingDaysLeft > 1 ? 's' : ''} restant${d.workingDaysLeft > 1 ? 's' : ''}`;
-  const first =
-    d.targetPct !== null
-      ? `${month} est à ${d.targetPct} % de l'objectif, avec ${days}.`
-      : `${days.charAt(0).toUpperCase()}${days.slice(1)} en ${d.monthName}.${d.canSetTarget ? " L'objectif mensuel n'est pas encore fixé." : ''}`;
+  const units = (n: number) => `${n} véhicule${n > 1 ? 's' : ''}`;
+  let first: string;
+  if (d.targetPct !== null) {
+    first =
+      d.targetScope === 'me'
+        ? `Vous êtes à ${d.targetPct} % de votre objectif de ${d.monthName}, ${units(d.achieved)} sur ${d.target}, avec ${days}.`
+        : `${month} est à ${d.targetPct} % de l'objectif, ${units(d.achieved)} sur ${d.target}, avec ${days}.`;
+  } else {
+    first = `${days.charAt(0).toUpperCase()}${days.slice(1)} en ${d.monthName}, ${units(d.achieved)} facturé${d.achieved > 1 ? 's' : ''}.${
+      d.canSetTarget ? " Les objectifs du mois ne sont pas encore fixés." : ''
+    }`;
+  }
   let second = '';
   if (d.ordersToInvoice > 0) {
     const n = d.ordersToInvoice <= 10 ? NUMBERS[d.ordersToInvoice] : String(d.ordersToInvoice);

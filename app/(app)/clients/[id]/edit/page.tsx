@@ -35,6 +35,7 @@ export default async function ClientEditPage({ params }: { params: Promise<{ id:
           address: client.address ?? '',
           city: client.city ?? '',
           notes: client.notes ?? '',
+          bankName: client.bank_name ?? '',
         }}
       />
     </div>

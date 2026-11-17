@@ -4,16 +4,24 @@ import { useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 
-type Role = 'commercial' | 'client';
+// 'n1' : signature du responsable commercial au moment de valider la
+// proforma (circuit 0044) ; l'enregistrement passe par onUploaded.
+type Role = 'commercial' | 'client' | 'n1';
 
 export function SignaturePad({
   documentId,
   role,
   onDone,
+  onUploaded,
+  submitLabel,
 }: {
   documentId: string;
   role: Role;
   onDone: () => void;
+  // Si fourni : appelé avec l'adresse de la signature déposée, à la place de
+  // la mise à jour directe du document. Renvoie un message d'erreur ou null.
+  onUploaded?: (url: string) => Promise<string | null>;
+  submitLabel?: string;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawing = useRef(false);
@@ -82,6 +90,14 @@ export function SignaturePad({
         .from('document-signatures')
         .getPublicUrl(path);
 
+      if (onUploaded) {
+        const failure = await onUploaded(publicUrlData.publicUrl);
+        if (failure) throw new Error(failure);
+        onDone();
+        router.refresh();
+        return;
+      }
+
       const updatePayload =
         role === 'commercial'
           ? { commercial_signature_url: publicUrlData.publicUrl }
@@ -109,7 +125,11 @@ export function SignaturePad({
   return (
     <div className="bg-white rounded-lg border p-3 space-y-2">
       <p className="text-sm font-medium">
-        {role === 'commercial' ? 'Signature du commercial' : 'Signature du client'}
+        {role === 'commercial'
+          ? 'Signature du commercial'
+          : role === 'n1'
+            ? 'Signature du responsable commercial'
+            : 'Signature du client'}
       </p>
       <canvas
         ref={canvasRef}
@@ -132,7 +152,7 @@ export function SignaturePad({
           disabled={saving}
           className="flex-1 bg-kf-navy text-white rounded-md py-2 text-sm"
         >
-          {saving ? 'Enregistrement...' : 'Valider'}
+          {saving ? 'Enregistrement...' : submitLabel ?? 'Valider'}
         </button>
       </div>
     </div>

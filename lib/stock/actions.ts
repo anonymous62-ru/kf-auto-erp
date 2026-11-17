@@ -42,6 +42,7 @@ export async function listVehicleUnits(): Promise<{ units: VehicleUnitRow[]; err
 }
 
 function friendly(message: string) {
+  if (/vehicle_units_engine_number_uniq/i.test(message)) return 'Ce numéro moteur est déjà attribué à un autre véhicule.';
   if (/vehicle_units_org_vin_uidx|duplicate key/i.test(message)) return 'Ce numéro de châssis existe déjà dans le stock.';
   if (/row-level security/i.test(message)) return "Vous n'avez pas le droit de modifier le stock véhicules.";
   return message;
@@ -50,6 +51,8 @@ function friendly(message: string) {
 export interface AddVehicleUnitsInput {
   productId: string;
   vins: string[];
+  // Numéro moteur de chaque véhicule, dans le même ordre que vins (optionnel).
+  engineNumbers?: (string | null)[];
   entryDate: string;
   color?: string;
   modelYear?: number | null;
@@ -71,9 +74,13 @@ export async function addVehicleUnits(
     .maybeSingle();
   if (!profile) return { inserted: 0, duplicates: [], error: 'Profil introuvable.' };
 
-  const vins = Array.from(
-    new Set(input.vins.map((v) => v.trim().toUpperCase().replace(/\s+/g, '')).filter(Boolean))
-  );
+  const engineByVin = new Map<string, string | null>();
+  input.vins.forEach((v, i) => {
+    const vin = v.trim().toUpperCase().replace(/\s+/g, '');
+    const engine = input.engineNumbers?.[i]?.trim().toUpperCase().replace(/\s+/g, '') || null;
+    if (vin && !engineByVin.has(vin)) engineByVin.set(vin, engine);
+  });
+  const vins = Array.from(engineByVin.keys());
   if (!input.productId) return { inserted: 0, duplicates: [], error: 'Choisissez le modèle.' };
   if (vins.length === 0) return { inserted: 0, duplicates: [], error: 'Saisissez au moins un numéro de châssis.' };
   if (vins.length > 200) return { inserted: 0, duplicates: [], error: '200 véhicules au maximum par saisie.' };
@@ -92,6 +99,7 @@ export async function addVehicleUnits(
         organization_id: profile.organization_id,
         product_id: input.productId,
         vin,
+        engine_number: engineByVin.get(vin) ?? null,
         entry_date: input.entryDate,
         color: input.color?.trim() || null,
         model_year: input.modelYear || null,
@@ -110,6 +118,7 @@ export async function addVehicleUnits(
 export interface UpdateVehicleUnitInput {
   id: string;
   vin: string;
+  engineNumber?: string;
   color?: string;
   modelYear?: number | null;
   entryDate: string;
@@ -132,6 +141,9 @@ export async function updateVehicleUnit(input: UpdateVehicleUnitInput): Promise<
     notes: input.notes?.trim() || null,
   };
   if (input.status) update.status = input.status;
+  if (input.engineNumber !== undefined) {
+    update.engine_number = input.engineNumber.trim().toUpperCase().replace(/\s+/g, '') || null;
+  }
 
   const { data, error } = await supabase.from('vehicle_units').update(update).eq('id', input.id).select('id');
   if (error) return { error: friendly(error.message) };

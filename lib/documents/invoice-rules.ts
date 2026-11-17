@@ -25,20 +25,35 @@ export function isInvoiceLike(documentType: string) {
 // l'administration des ventes tant qu'aucun paiement n'est enregistré. Dès le
 // premier versement, elle est verrouillée pour tout le monde. Un avoir est
 // toujours figé une fois créé.
-export function isLockedInvoice(documentType: string, status: string, amountPaid: number) {
+//
+// Règle de la direction (16/11/2026) : une facture émise (circuit de vente,
+// workflow_status = 'emise') n'est plus modifiable du tout ; la correction
+// passe par un avoir (migration 0051).
+export function isLockedInvoice(documentType: string, status: string, amountPaid: number, workflowStatus?: string | null) {
   if (documentType === 'avoir') return status !== 'brouillon';
   if (documentType !== 'facture') return false;
+  if (workflowStatus === 'emise') return true;
   return ['paye_partiel', 'paye', 'annule'].includes(status) || amountPaid > 0;
 }
+
+export const ISSUED_INVOICE_MESSAGE =
+  'Facture émise : elle ne peut plus être modifiée. Toute correction passe par un avoir.';
 
 export const LOCKED_INVOICE_MESSAGE =
   'Un paiement est enregistré sur cette facture : elle ne peut plus être modifiée. Toute correction passe par un avoir.';
 
 // Motif de refus d'une modification, ou null si elle est permise.
-export function invoiceEditBlockReason(documentType: string, status: string, role: string, amountPaid = 0): string | null {
+export function invoiceEditBlockReason(
+  documentType: string,
+  status: string,
+  role: string,
+  amountPaid = 0,
+  workflowStatus?: string | null
+): string | null {
   if (!isInvoiceLike(documentType)) return null;
   if (documentType === 'avoir') return 'Un avoir ne se modifie pas.';
   if (status === 'annule') return 'Cette facture est annulée.';
+  if (documentType === 'facture' && workflowStatus === 'emise') return ISSUED_INVOICE_MESSAGE;
   if (isLockedInvoice(documentType, status, amountPaid)) return LOCKED_INVOICE_MESSAGE;
   if (!INVOICE_EDITOR_ROLES.includes(role)) return "Seule l'administration des ventes peut modifier une facture.";
   return null;

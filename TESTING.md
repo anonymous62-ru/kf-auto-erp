@@ -97,6 +97,42 @@ Coche au fur et à mesure. Pour chaque ✗, note l'écran, ce que tu as fait, et
 - [ ] Réglage « réduire les animations » du téléphone ou de l'ordinateur activé : le repère rouge du compte-tours ne bouge plus au chargement.
 - [ ] Silhouette pick-up : si un modèle pick-up apparaît en SUV, corriger `products.body_type` à `pickup`.
 
+## 6 quinquies. Demandes de la direction du 16/11/2026 (migrations 0043 à 0051, déjà appliquées)
+
+Préalable : créer au moins un compte « Responsable commercial », un compte « Administration des ventes » et un compte « Comptable » (Utilisateurs > Nouveau). Sans eux, les validations retombent sur la direction ou le super admin.
+
+Circuit de vente (étapes 1 et 2)
+- [ ] Commercial : créer une proforma, vérifier que PDF et envoi sont bloqués avec un message, puis « Soumettre à validation ».
+- [ ] Responsable commercial : la cloche et « Mes actions » signalent la proforma ; refuser avec un motif, le commercial voit le motif et peut corriger puis resoumettre ; valider avec sa signature.
+- [ ] Commercial : envoyer la proforma (PDF avec 3 cadres de signature), faire signer le client, « Marquer acceptée », puis « Convertir en bon de commande ».
+- [ ] ADV : le bon de commande est « À vérifier » ; la checklist montre client, banque, pièces manquantes, montants ; essayer « Non conforme » avec motif, puis « Conforme ».
+- [ ] ADV : « Préparer la facture », choisir un châssis disponible du bon modèle (couleur et n° moteur s'affichent) ; le véhicule passe Réservé.
+- [ ] Direction : refuser avec motif (le châssis redevient Disponible), puis après une nouvelle préparation, valider.
+- [ ] ADV : « Émettre la facture » ; le véhicule passe Vendu ; la facture n'est plus modifiable ; une deuxième facture sur ce châssis est refusée.
+
+Facture (étape 3)
+- [ ] PDF de la facture : modèle + 4 à 6 lignes courtes, tableau Modèle / Couleur / N° de châssis / N° moteur, pas de litres ni de dimensions.
+
+Paiements (étape 4)
+- [ ] Enregistrer un acompte inférieur au reste dû, échelonner le reste en 3 échéances : le bouton reste bloqué tant que le total n'est pas égal au reste dû.
+- [ ] L'échéancier apparaît sur la fiche facture avec ses statuts ; tester la relance WhatsApp d'une échéance.
+- [ ] Comptable : confirmer un paiement saisi par un commercial.
+
+Fiche client (étape 5)
+- [ ] Renseigner la banque, ajouter une pièce PDF et une photo, la consulter, exporter le dossier (ZIP).
+- [ ] Un client sans pièce affiche « Pièce manquante » sans bloquer la vente.
+
+SAV (étape 6)
+- [ ] Sur un ordre de réparation : fiche de réception sur téléphone (photos, carburant, signature), puis fiche de restitution et comparaison.
+
+Objectifs (étape 7)
+- [ ] Page Objectifs commerciaux : fixer un objectif par commercial ; le tableau de bord du manager affiche objectif, réalisé et pourcentage.
+
+Notifications (étape 9)
+- [ ] La cloche ouvre directement le document ; « Mes actions » liste les actions en attente ; le compteur apparaît sur le tableau de bord.
+- [ ] Réglages > Notifications : couper les e-mails non urgents.
+- [ ] Une fois Resend configuré (DEPLOYMENT.md, section 7) : bouton « E-mail de test » (super admin), puis vérifier qu'une proforma soumise envoie bien un e-mail au responsable commercial.
+
 ## 7. Utilisateurs & rôles (compte Super Admin/Administrateur uniquement)
 
 - [ ] Page **Gérer les utilisateurs** accessible

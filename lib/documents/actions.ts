@@ -6,6 +6,7 @@ import { applyFactureStockDeduction } from '@/lib/documents/stock-deduction';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { applyClientSearch } from '@/lib/search';
+import { isProformaType, sendBlockedReason } from '@/lib/documents/workflow-rules';
 
 export type DocumentType = 'proforma' | 'devis' | 'commande' | 'facture' | 'bon_livraison' | 'recu' | 'avoir';
 
@@ -206,6 +207,16 @@ export async function recordSending(input: {
   const { data: userData } = await supabase.auth.getUser();
   if (!userData.user) throw new Error('Non authentifie');
 
+  // Circuit de vente (0044) : rien ne part avant validation.
+  const { data: doc } = await supabase
+    .from('documents')
+    .select('document_type, workflow_status')
+    .eq('id', input.documentId)
+    .maybeSingle();
+  if (!doc) throw new Error('Document introuvable');
+  const blocked = sendBlockedReason(doc.document_type, doc.workflow_status);
+  if (blocked) throw new Error(blocked);
+
   const { error } = await supabase.from('document_sendings').insert({
     document_id: input.documentId,
     channel: input.channel,
@@ -219,6 +230,12 @@ export async function recordSending(input: {
   // Seul un brouillon passe à « envoyé » (une facture émise, payée ou
   // annulée garde son statut).
   await supabase.from('documents').update({ status: 'envoye' }).eq('id', input.documentId).eq('status', 'brouillon');
+
+  // Proforma validée : passe à l'étape « envoyée » (sans effet si déjà envoyée).
+  if (isProformaType(doc.document_type)) {
+    await supabase.rpc('mark_proforma_sent', { p_id: input.documentId });
+    revalidatePath(`/documents/${input.documentId}`);
+  }
 }
 
 // ---------- Suppression d'un document erroné ----------

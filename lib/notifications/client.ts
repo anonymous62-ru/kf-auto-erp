@@ -10,6 +10,8 @@ export interface NotificationRow {
   message: string | null;
   is_read: boolean;
   related_document_id: string | null;
+  link: string | null;
+  action_item_id: string | null;
   created_at: string;
 }
 
@@ -17,7 +19,7 @@ export async function fetchNotifications(limit = 20): Promise<NotificationRow[]>
   const supabase = createClient();
   const { data, error } = await supabase
     .from('notifications')
-    .select('id, type, title, message, is_read, related_document_id, created_at')
+    .select('id, type, title, message, is_read, related_document_id, link, action_item_id, created_at')
     .order('created_at', { ascending: false })
     .limit(limit);
   if (error) throw new Error(error.message);

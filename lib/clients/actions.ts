@@ -16,6 +16,8 @@ export interface CreateClientInput {
   address?: string;
   city?: string;
   notes?: string;
+  // Banque du client (nom de la banque), reprise dans le dossier de vente.
+  bankName?: string;
   // "client" : contact déjà acheteur (par exemple reçu à l'atelier). Réservé
   // aux rôles de DIRECT_CLIENT_ROLES ; la base refuse pour les autres, qui
   // voient leurs prospects devenir clients au premier versement.
@@ -55,6 +57,7 @@ export async function createClientFull(input: CreateClientInput) {
       address: input.address || null,
       city: input.city || null,
       notes: input.notes || null,
+      bank_name: input.bankName?.trim() || null,
       status: input.status === 'client' ? 'client' : 'prospect',
     })
     .select('id')
@@ -69,7 +72,7 @@ export async function getClientFull(id: string) {
   const { data, error } = await supabase
     .from('clients')
     .select(
-      'id, client_type, first_name, last_name, company_name, phone, whatsapp, email, address, city, notes, status, client_number'
+      'id, client_type, first_name, last_name, company_name, phone, whatsapp, email, address, city, notes, status, client_number, bank_name'
     )
     .eq('id', id)
     .single();
@@ -103,6 +106,7 @@ export async function updateClientFull(input: UpdateClientInput) {
       address: input.address || null,
       city: input.city || null,
       notes: input.notes || null,
+      bank_name: input.bankName?.trim() || null,
     })
     .eq('id', input.id);
   if (error) throw new Error(error.message);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 import { createClientFull, type CreateClientInput } from '@/lib/clients/actions';
 
 export function ClientForm({ allowDirectClient = false }: { allowDirectClient?: boolean }) {
@@ -15,22 +15,27 @@ export function ClientForm({ allowDirectClient = false }: { allowDirectClient?: 
     address: '',
     city: '',
     notes: '',
+    bankName: '',
     status: 'prospect',
   });
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const submitting = useRef(false);
 
   function update<K extends keyof CreateClientInput>(key: K, value: CreateClientInput[K]) {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
   function handleSubmit() {
+    if (submitting.current) return;
+    submitting.current = true;
     setError(null);
     startTransition(async () => {
       try {
         await createClientFull(form);
       } catch (e) {
         if (e instanceof Error && e.message === 'NEXT_REDIRECT') throw e;
+        submitting.current = false;
         setError(e instanceof Error ? e.message : 'Erreur lors de la création');
       }
     });
@@ -131,6 +136,14 @@ export function ClientForm({ allowDirectClient = false }: { allowDirectClient?: 
             className="border rounded-md px-2 py-1.5 text-sm"
           />
         </div>
+        <input
+          placeholder="Banque du client (ex. Ecobank, Orabank)"
+          aria-label="Banque du client"
+          value={form.bankName}
+          maxLength={120}
+          onChange={(e) => update('bankName', e.target.value)}
+          className="w-full border rounded-md px-2 py-1.5 text-sm"
+        />
         <textarea
           placeholder="Notes (optionnel)"
           value={form.notes}

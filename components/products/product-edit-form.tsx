@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { updateProduct } from '@/lib/products/actions';
+import { isForbiddenSpecLine, shortSpecsFromDescription } from '@/lib/products/short-specs';
 import { IconCheck, IconX } from '@/components/icons';
 
 interface Product {
@@ -12,6 +13,7 @@ interface Product {
   brand: string | null;
   model: string | null;
   description: string | null;
+  short_specs?: string | null;
   sale_price: number;
   tax_rate: number;
   stock_min: number;
@@ -25,6 +27,7 @@ export function ProductEditForm({ product }: { product: Product }) {
     brand: product.brand ?? '',
     model: product.model ?? '',
     description: product.description ?? '',
+    shortSpecs: product.short_specs ?? '',
     salePrice: Number(product.sale_price),
     taxRate: Number(product.tax_rate),
     stockMin: Number(product.stock_min),
@@ -104,6 +107,37 @@ export function ProductEditForm({ product }: { product: Product }) {
           Une section en MAJUSCULES sur sa propre ligne (ex. "CARACTERISTIQUES TECHNIQUES") s'affiche en gras sur
           les documents ; les lignes commençant par "-" s'affichent en liste normale.
         </p>
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between gap-2">
+          <label className="field-label">Caractéristiques courtes (facture)</label>
+          <button
+            type="button"
+            className="text-[11px] text-kf-navy underline disabled:opacity-40"
+            disabled={!form.description.trim()}
+            onClick={() => setForm((f) => ({ ...f, shortSpecs: shortSpecsFromDescription(f.description) }))}
+          >
+            Proposer à partir de la description
+          </button>
+        </div>
+        <textarea
+          className="input mt-1 font-mono text-xs"
+          rows={5}
+          value={form.shortSpecs}
+          placeholder={'- Moteur : ...\n- Boîte : ...\n- Sécurité : ...\n- Places : ...'}
+          onChange={(e) => setForm((f) => ({ ...f, shortSpecs: e.target.value }))}
+        />
+        <p className="text-[11px] text-gray-400 mt-1">
+          4 à 6 lignes courtes : moteur, boîte, sécurité, places. Imprimées sur la facture à la place de la fiche
+          technique complète (la proforma et le bon de commande gardent la description détaillée). Pas de litres ni de
+          dimensions. Si ce champ est vide, la facture les extrait automatiquement de la description.
+        </p>
+        {form.shortSpecs.split('\n').some((l) => l.trim() && isForbiddenSpecLine(l)) && (
+          <p className="text-[11px] text-amber-700 mt-1">
+            Une ligne mentionne des litres, une capacité ou des dimensions : elle ne sera pas imprimée sur la facture.
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-3 gap-3">

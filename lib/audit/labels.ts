@@ -10,6 +10,9 @@ const TABLE_LABELS: Record<string, string> = {
   clients: 'Client',
   payments: 'Paiement',
   prospects: 'Prospects',
+  // Journalisé par un trigger quand un e-mail passe à « envoye » ou « echec »
+  // (migration 0049).
+  email_outbox: 'E-mail de notification',
 };
 
 const ACTION_LABELS: Record<string, string> = {

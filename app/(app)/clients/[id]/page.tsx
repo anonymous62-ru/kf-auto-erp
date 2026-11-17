@@ -8,11 +8,14 @@ import { SendCatalogueButton } from '@/components/catalogue/send-catalogue';
 import { CatalogueSendingHistory } from '@/components/catalogue/sending-history';
 import { listCatalogueChoices, listCatalogueSendings } from '@/lib/catalogue/actions';
 import { CATALOGUE_SENDER_ROLES } from '@/lib/catalogue/roles';
-import { getCurrentRole } from '@/lib/permissions';
+import { getCurrentProfile } from '@/lib/permissions';
 import { toWhatsappNumber } from '@/lib/utils/phone';
 import { PageHeader } from '@/components/ui/page-header';
 import { Tabs } from '@/components/ui/tabs';
 import { EmptyState } from '@/components/ui/empty-state';
+import { MissingDocumentsWarning } from '@/components/clients/missing-documents-warning';
+import { ClientDocumentsSection, type ClientDocumentRow } from '@/components/clients/client-documents-section';
+import { CLIENT_DOCUMENT_DELETE_ROLES, CLIENT_DOCUMENT_WRITE_ROLES } from '@/lib/clients/required-documents';
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   especes: 'Espèces',
@@ -39,22 +42,43 @@ export default async function ClientDetailPage({
 
   const { data: client } = await supabase
     .from('clients')
-    .select('id, first_name, last_name, company_name, phone, whatsapp, email, address, city, notes, client_type, status, client_number, client_since, created_at')
+    .select('id, first_name, last_name, company_name, phone, whatsapp, email, address, city, notes, client_type, status, client_number, client_since, created_at, bank_name, organization_id, assigned_to')
     .eq('id', id)
     .maybeSingle();
   if (!client) notFound();
 
-  const [{ data: documents }, role, choices, sendings, { data: deals }] = await Promise.all([
+  const [{ data: documents }, profile, choices, sendings, { data: deals }, { data: pieces }] = await Promise.all([
     supabase
       .from('documents')
       .select('id, document_type, document_number, status, total_amount, balance_due, issue_date, due_date')
       .eq('client_id', id)
       .order('issue_date', { ascending: false }),
-    getCurrentRole(),
+    getCurrentProfile(),
     listCatalogueChoices(),
     listCatalogueSendings({ clientId: id }),
     supabase.from('deals').select('id, title, stage, temperature, estimated_amount, updated_at').eq('client_id', id).order('updated_at', { ascending: false }),
+    supabase
+      .from('client_documents')
+      .select('id, kind, file_name, mime_type, size_bytes, created_at, uploaded_by, uploader:profiles!client_documents_uploaded_by_fkey(full_name)')
+      .eq('client_id', id)
+      .order('created_at', { ascending: true }),
   ]);
+  const role = profile?.role ?? null;
+  const pieceRows: ClientDocumentRow[] = (pieces ?? []).map((p) => {
+    const up = p.uploader as { full_name: string | null } | { full_name: string | null }[] | null;
+    return {
+      id: p.id,
+      kind: p.kind,
+      file_name: p.file_name,
+      mime_type: p.mime_type,
+      size_bytes: Number(p.size_bytes),
+      created_at: p.created_at,
+      uploaded_by: p.uploaded_by,
+      uploader_name: (Array.isArray(up) ? up[0] : up)?.full_name ?? null,
+    };
+  });
+  const canWritePieces = CLIENT_DOCUMENT_WRITE_ROLES.includes(role ?? '') || (!!profile && client.assigned_to === profile.id);
+  const canDeleteAnyPiece = CLIENT_DOCUMENT_DELETE_ROLES.includes(role ?? '');
   const docIds = (documents ?? []).map((d) => d.id);
   const { data: payments } = docIds.length
     ? await supabase
@@ -130,6 +154,10 @@ export default async function ClientDetailPage({
         </div>
       </div>
 
+      <div className="mb-4 empty:hidden">
+        <MissingDocumentsWarning clientId={client.id} />
+      </div>
+
       <Tabs
         basePath={`/clients/${client.id}`}
         active={tab}
@@ -165,6 +193,10 @@ export default async function ClientDetailPage({
                 </dd>
               </div>
               <div>
+                <dt className="text-xs text-gray-500">Banque du client</dt>
+                <dd className="mt-0.5">{client.bank_name || <span className="text-amber-700">Non renseignée</span>}</dd>
+              </div>
+              <div>
                 <dt className="text-xs text-gray-500">Adresse</dt>
                 <dd className="mt-0.5 flex items-center gap-1.5">
                   <IconMapPin className="h-3.5 w-3.5 text-gray-400" /> {[client.address, client.city].filter(Boolean).join(', ') || '-'}
@@ -191,6 +223,17 @@ export default async function ClientDetailPage({
                 defaults={{ clientId: client.id, name: clientName, phone: client.whatsapp || client.phone, email: client.email }}
               />
             )}
+          </div>
+          <div className="lg:col-span-3">
+            <ClientDocumentsSection
+              clientId={client.id}
+              organizationId={client.organization_id}
+              clientType={client.client_type}
+              documents={pieceRows}
+              canWrite={canWritePieces}
+              canDeleteAny={canDeleteAnyPiece}
+              currentUserId={profile?.id ?? null}
+            />
           </div>
         </div>
       )}

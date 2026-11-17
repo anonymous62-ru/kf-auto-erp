@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { updateClientFull, type CreateClientInput } from '@/lib/clients/actions';
 import { IconCheck, IconX } from '@/components/icons';
@@ -21,10 +21,12 @@ export function ClientEditForm({ client }: { client: Client }) {
     address: client.address ?? '',
     city: client.city ?? '',
     notes: client.notes ?? '',
+    bankName: client.bankName ?? '',
   });
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const submitting = useRef(false);
   const router = useRouter();
 
   function update<K extends keyof CreateClientInput>(key: K, value: CreateClientInput[K]) {
@@ -32,6 +34,8 @@ export function ClientEditForm({ client }: { client: Client }) {
   }
 
   function handleSubmit() {
+    if (submitting.current) return;
+    submitting.current = true;
     setError(null);
     setSuccess(false);
     startTransition(async () => {
@@ -41,6 +45,8 @@ export function ClientEditForm({ client }: { client: Client }) {
         router.refresh();
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Erreur lors de la sauvegarde');
+      } finally {
+        submitting.current = false;
       }
     });
   }
@@ -110,6 +116,16 @@ export function ClientEditForm({ client }: { client: Client }) {
           <label className="field-label">Ville</label>
           <input value={form.city} onChange={(e) => update('city', e.target.value)} className="input mt-1" />
         </div>
+      </div>
+      <div>
+        <label className="field-label">Banque du client</label>
+        <input
+          value={form.bankName}
+          maxLength={120}
+          placeholder="Ex. Ecobank, Orabank, UTB"
+          onChange={(e) => update('bankName', e.target.value)}
+          className="input mt-1"
+        />
       </div>
       <div>
         <label className="field-label">Notes</label>

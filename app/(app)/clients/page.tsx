@@ -6,6 +6,7 @@ import { applyClientSearch } from '@/lib/search';
 import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PAGE_SIZE, Pagination, SortHeader, pageFromParam } from '@/components/ui/pagination';
+import { missingClientDocuments } from '@/lib/clients/required-documents';
 
 // Un contact reste « prospect » tant qu'il n'a rien versé ; il devient
 // « client », avec son numéro client, au premier versement (règle du 09/10).
@@ -33,7 +34,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
   } = await supabase.auth.getUser();
   const { data: me } = await supabase.from('profiles').select('role').eq('id', user?.id ?? '').maybeSingle();
   const canExport = ['super_admin', 'administrateur', 'manager'].includes(me?.role ?? '');
-  const seesAll = ['super_admin', 'administrateur', 'manager', 'comptable', 'receptionniste_sav', 'admin_ventes', 'chef_atelier'].includes(
+  const seesAll = ['super_admin', 'administrateur', 'manager', 'comptable', 'receptionniste_sav', 'admin_ventes', 'chef_atelier', 'responsable_commercial'].includes(
     me?.role ?? ''
   );
   const { data: commercials } = seesAll
@@ -44,7 +45,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
   let request = supabase
     .from('clients')
     .select(
-      'id, first_name, last_name, company_name, phone, city, status, client_number, created_at, owner:profiles!clients_assigned_to_fkey(full_name)',
+      'id, first_name, last_name, company_name, phone, city, status, client_number, client_type, created_at, owner:profiles!clients_assigned_to_fkey(full_name)',
       { count: 'exact' }
     )
     .not('is_archived', 'is', true);
@@ -65,9 +66,19 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
     city: string | null;
     status: string | null;
     client_number: string | null;
+    client_type: string | null;
     created_at: string;
     owner: Owner;
   }[];
+
+  // Pièces justificatives : simple indicateur, ne bloque jamais une vente.
+  const { data: pieceRows } = clients.length
+    ? await supabase.from('client_documents').select('client_id, kind').in('client_id', clients.map((c) => c.id))
+    : { data: [] as { client_id: string; kind: string }[] };
+  const kindsByClient = new Map<string, string[]>();
+  for (const p of pieceRows ?? []) kindsByClient.set(p.client_id, [...(kindsByClient.get(p.client_id) ?? []), p.kind]);
+  const missingCount = (c: { id: string; client_type: string | null }) =>
+    missingClientDocuments(c.client_type, kindsByClient.get(c.id) ?? []).length;
 
   function href(next: Partial<Record<keyof SP, string | null>>) {
     const params = new URLSearchParams();
@@ -177,6 +188,11 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
                         <Link href={`/clients/${c.id}`} className="font-medium hover:text-kf-navy">
                           {c.company_name || `${c.first_name ?? ''} ${c.last_name ?? ''}`.trim() || 'Sans nom'}
                         </Link>
+                        {missingCount(c) > 0 && (
+                          <span className="ml-2 align-middle text-xs font-medium text-amber-700" title="Pièces justificatives incomplètes (ne bloque pas la vente)">
+                            Pièces manquantes
+                          </span>
+                        )}
                       </td>
                       <td className="tabular-nums whitespace-nowrap text-gray-600">{c.phone}</td>
                       <td className="text-gray-600">{c.city}</td>
@@ -203,6 +219,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
                         <span className="block text-xs text-gray-500">
                           {[c.phone, c.city].filter(Boolean).join(' · ')}
                         </span>
+                        {missingCount(c) > 0 && <span className="block text-xs font-medium text-amber-700">Pièces manquantes</span>}
                       </span>
                       <span className="shrink-0 text-right">
                         <span className={st.badge}>{st.label}</span>

@@ -1,12 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { renderDocumentPdf } from '@/lib/documents/pdf/render-document-pdf';
+import { canDownloadDocument, sendBlockedReason } from '@/lib/documents/workflow-rules';
 
 // PDF consulté par un employé connecté : la RLS décide s'il y a accès.
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const supabase = await createClient();
+
+    // Circuit de vente (0044) : pas de PDF avant validation (sauf valideurs).
+    const { data: auth } = await supabase.auth.getUser();
+    const [{ data: wf }, { data: me }] = await Promise.all([
+      supabase.from('documents').select('document_type, workflow_status').eq('id', id).maybeSingle(),
+      supabase.from('profiles').select('role').eq('id', auth.user?.id ?? '').maybeSingle(),
+    ]);
+    if (wf && !canDownloadDocument(wf.document_type, wf.workflow_status, me?.role)) {
+      return NextResponse.json({ error: sendBlockedReason(wf.document_type, wf.workflow_status) }, { status: 403 });
+    }
+
     const result = await renderDocumentPdf(supabase, { column: 'id', value: id }, req.nextUrl.origin);
     if (!result) return NextResponse.json({ error: 'Document introuvable' }, { status: 404 });
 
